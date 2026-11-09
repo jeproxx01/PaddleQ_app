@@ -92,11 +92,13 @@ export async function joinPair(
     await db.stacks.update(targetStack.id, {
       playerIds: updatedPlayerIds,
       teamLockId,
+      teamLockPlayerIds: [player1Id, player2Id],
     });
     return {
       ...targetStack,
       playerIds: updatedPlayerIds,
       teamLockId,
+      teamLockPlayerIds: [player1Id, player2Id],
     };
   }
 
@@ -106,6 +108,7 @@ export async function joinPair(
     entryType: 'pair',
     playerIds: [player1Id, player2Id],
     teamLockId,
+    teamLockPlayerIds: [player1Id, player2Id],
     queuedAt: Date.now(),
     status: 'waiting',
   };

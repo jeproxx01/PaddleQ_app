@@ -28,6 +28,7 @@ export interface Stack {
   entryType: 'solo' | 'pair' | 'foursome';
   playerIds: string[];
   teamLockId?: string;
+  teamLockPlayerIds?: [string, string];
   queuedAt: number;
   status: 'waiting' | 'dispatched' | 'cancelled';
 }

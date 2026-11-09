@@ -9,12 +9,15 @@ import { CourtWithMatch, getCourtsWithMatches } from '../features/courts/courtSe
 import { CourtGrid } from '../features/courts/CourtGrid';
 import { StackWithPlayers, getWaitingStacksWithPlayers } from '../features/queue/queueService';
 import { PaddleRack } from '../features/queue/PaddleRack';
+import { runAutoDispatch } from '../features/dispatch/dispatchEngine';
+import { WhyTheseFourModal } from '../features/dispatch/WhyTheseFourModal';
 
 export default function KioskPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [courts, setCourts] = useState<CourtWithMatch[]>([]);
   const [stacks, setStacks] = useState<StackWithPlayers[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [whyTheseFourCourt, setWhyTheseFourCourt] = useState<CourtWithMatch | null>(null);
 
   const loadActiveSession = useCallback(async () => {
     setLoading(true);
@@ -22,6 +25,12 @@ export default function KioskPage() {
       const active = await getActiveSession();
       if (active) {
         setSession(active);
+        // Automatically dispatch waiting players into any Open courts.
+        const MAX_DISPATCH_ROUNDS = 12;
+        for (let i = 0; i < MAX_DISPATCH_ROUNDS; i++) {
+          const dispatched = await runAutoDispatch(active.id);
+          if (dispatched.length === 0) break;
+        }
         const activeCourts = await getCourtsWithMatches(active.id);
         setCourts(activeCourts);
         const waitingStacks = await getWaitingStacksWithPlayers(active.id);
@@ -130,7 +139,7 @@ export default function KioskPage() {
         </div>
 
         {/* Dynamic Court Grid */}
-        <CourtGrid courts={courts} />
+        <CourtGrid courts={courts} onWhyTheseFour={setWhyTheseFourCourt} />
 
         {/* Visual Paddle Rack */}
         <PaddleRack
@@ -139,6 +148,14 @@ export default function KioskPage() {
           onQueueUpdated={loadActiveSession}
         />
       </main>
+
+      {/* Explainable Assignment Modal */}
+      {whyTheseFourCourt && (
+        <WhyTheseFourModal
+          court={whyTheseFourCourt}
+          onClose={() => setWhyTheseFourCourt(null)}
+        />
+      )}
     </div>
   );
 }
