@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Next.js app scaffold created in `app/` with Tailwind CSS configured with "Electric Obsidian" color tokens (`#0B0F19` base, `#161F30` card surface, `#24324D` border, `#CCFF00` volt primary, `#00E5FF` cyan accent, `#FF8A00` tangerine warning) and typography (`font-sans`, `font-mono`/`tabular-nums`).
-- [ ] Vitest test runner configured and working for pure TypeScript domain testing.
-- [ ] Dexie.js (IndexedDB) database initialized with UUID primary keys for `sessions`, `players`, `stacks`, `courts`, and `matches` according to ADR-0001.
-- [ ] Session Launch Modal renders when no active session exists: allows setting initial Court count (1–12, default 4), Rotation Mode (`4-In / 4-Out` or `Winners Stay & Split`), and 4-digit PIN (default 1234).
-- [ ] One-tap "Enable Court Audio" button on session launch initializes browser audio context to unlock speech synthesis autoplay policies.
-- [ ] Active session state persists in local storage so refreshing the browser returns directly to the active session view.
+- [x] Next.js app scaffold created in `app/` with Tailwind CSS configured with "Electric Obsidian" color tokens (`#0B0F19` base, `#161F30` card surface, `#24324D` border, `#CCFF00` volt primary, `#00E5FF` cyan accent, `#FF8A00` tangerine warning) and typography (`font-sans`, `font-mono`/`tabular-nums`).
+- [x] Vitest test runner configured and working for pure TypeScript domain testing.
+- [x] Dexie.js (IndexedDB) database initialized with UUID primary keys for `sessions`, `players`, `stacks`, `courts`, and `matches` according to ADR-0001.
+- [x] Session Launch Modal renders when no active session exists: allows setting initial Court count (1–12, default 4), Rotation Mode (`4-In / 4-Out` or `Winners Stay & Split`), and 4-digit PIN (default 1234).
+- [x] One-tap "Enable Court Audio" button on session launch initializes browser audio context to unlock speech synthesis autoplay policies.
+- [x] Active session state persists in local storage so refreshing the browser returns directly to the active session view.
