@@ -2,13 +2,15 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Volume2, VolumeX, Shield, Activity, RefreshCw } from 'lucide-react';
-import { Session, Court } from '../db/db';
-import { getActiveSession, getCourtsForSession, endSession } from '../features/session/sessionService';
+import { Session } from '../db/db';
+import { getActiveSession, endSession } from '../features/session/sessionService';
 import { SessionLaunchModal } from '../features/session/SessionLaunchModal';
+import { CourtWithMatch, getCourtsWithMatches } from '../features/courts/courtService';
+import { CourtGrid } from '../features/courts/CourtGrid';
 
 export default function KioskPage() {
   const [session, setSession] = useState<Session | null>(null);
-  const [courts, setCourts] = useState<Court[]>([]);
+  const [courts, setCourts] = useState<CourtWithMatch[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const loadActiveSession = useCallback(async () => {
@@ -17,7 +19,7 @@ export default function KioskPage() {
       const active = await getActiveSession();
       if (active) {
         setSession(active);
-        const activeCourts = await getCourtsForSession(active.id);
+        const activeCourts = await getCourtsWithMatches(active.id);
         setCourts(activeCourts);
       } else {
         setSession(null);
@@ -110,7 +112,7 @@ export default function KioskPage() {
         </div>
       </header>
 
-      {/* Main Board Container (Shell for Ticket 02 Courts & Ticket 03 Queue) */}
+      {/* Main Board Container */}
       <main className="flex-1 p-6 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
@@ -121,24 +123,8 @@ export default function KioskPage() {
           </span>
         </div>
 
-        {/* Placeholder grid for active courts, to be populated in Ticket 02 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {courts.map((court) => (
-            <div
-              key={court.id}
-              className="h-44 rounded-2xl bg-card-surface border border-card-border p-5 flex flex-col justify-between hover:border-volt/30 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xl font-bold font-mono text-white">Court {court.courtNumber}</span>
-                <span className="text-xs uppercase font-mono px-2.5 py-1 rounded-full border border-card-border text-text-secondary bg-obsidian-dark">
-                  {court.status}
-                </span>
-              </div>
-              <div className="text-sm text-text-secondary">Ready for Dispatch</div>
-              <div className="text-xs font-mono text-text-secondary">Elapsed: 00:00</div>
-            </div>
-          ))}
-        </div>
+        {/* Dynamic Court Grid */}
+        <CourtGrid courts={courts} />
       </main>
     </div>
   );
