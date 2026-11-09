@@ -7,10 +7,13 @@ import { getActiveSession, endSession } from '../features/session/sessionService
 import { SessionLaunchModal } from '../features/session/SessionLaunchModal';
 import { CourtWithMatch, getCourtsWithMatches } from '../features/courts/courtService';
 import { CourtGrid } from '../features/courts/CourtGrid';
+import { StackWithPlayers, getWaitingStacksWithPlayers } from '../features/queue/queueService';
+import { PaddleRack } from '../features/queue/PaddleRack';
 
 export default function KioskPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [courts, setCourts] = useState<CourtWithMatch[]>([]);
+  const [stacks, setStacks] = useState<StackWithPlayers[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   const loadActiveSession = useCallback(async () => {
@@ -21,9 +24,12 @@ export default function KioskPage() {
         setSession(active);
         const activeCourts = await getCourtsWithMatches(active.id);
         setCourts(activeCourts);
+        const waitingStacks = await getWaitingStacksWithPlayers(active.id);
+        setStacks(waitingStacks);
       } else {
         setSession(null);
         setCourts([]);
+        setStacks([]);
       }
     } catch (err) {
       console.error('Failed to load session:', err);
@@ -125,6 +131,13 @@ export default function KioskPage() {
 
         {/* Dynamic Court Grid */}
         <CourtGrid courts={courts} />
+
+        {/* Visual Paddle Rack */}
+        <PaddleRack
+          sessionId={session.id}
+          stacks={stacks}
+          onQueueUpdated={loadActiveSession}
+        />
       </main>
     </div>
   );
