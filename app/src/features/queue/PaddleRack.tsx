@@ -211,7 +211,7 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
                       className="flex-1 h-11 rounded-lg bg-volt hover:bg-volt-hover text-obsidian-dark font-bold text-sm flex items-center justify-center gap-1.5"
                     >
                       <Play className="w-4 h-4 fill-current" />
-                      Start
+                      Start Game
                     </button>
                   )}
                   <button
@@ -233,7 +233,17 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
                       <MoreVertical className="w-4 h-4" />
                     </button>
                     {menuOpen === stack.id && (
-                      <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-xl bg-card-surface border border-card-border shadow-xl overflow-hidden">
+                      <div className="absolute right-0 top-full mt-1 z-20 w-44 rounded-xl bg-card-surface border border-card-border shadow-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditStack(stack);
+                            setMenuOpen(null);
+                          }}
+                          className="w-full text-left px-3 py-2.5 text-sm text-white hover:bg-obsidian-dark"
+                        >
+                          Remove players
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleDisband(stack.id)}
