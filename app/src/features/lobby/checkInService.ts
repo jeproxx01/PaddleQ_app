@@ -1,4 +1,5 @@
 import { db, type CheckInState, type Player, type SessionPlayer } from '../../db/db';
+import { joinSolo, isPlayerQueued, removePlayerFromQueue } from '../queue/queueService';
 
 /**
  * Player check-in state management for the pre-session Lobby (ticket #03).
@@ -43,15 +44,15 @@ export async function setCheckInState(
 ): Promise<void> {
   const sp = await getOrCreateSessionPlayer(sessionId, playerId);
   await db.sessionPlayers.update(sp.id, { checkInState: state });
-}
 
-/** Mark players as Ready (e.g. when they join the queue). */
-export async function ensureReady(sessionId: string, playerIds: string[]): Promise<void> {
-  for (const playerId of playerIds) {
-    const sp = await getOrCreateSessionPlayer(sessionId, playerId, 'ready');
-    if (sp.checkInState !== 'ready') {
-      await db.sessionPlayers.update(sp.id, { checkInState: 'ready' });
+  // Keep queue membership in sync with the check-in state: a Ready player is
+  // dispatched into the queue; Not here / Resting players are removed from it.
+  if (state === 'ready') {
+    if (!(await isPlayerQueued(sessionId, playerId))) {
+      await joinSolo(sessionId, playerId);
     }
+  } else {
+    await removePlayerFromQueue(sessionId, playerId);
   }
 }
 

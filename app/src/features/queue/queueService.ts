@@ -1,5 +1,4 @@
 import { db, Player, Stack, SkillLevel, Gender } from '../../db/db';
-import { ensureReady } from '../lobby/checkInService';
 
 export interface StackWithPlayers extends Stack {
   players: Player[];
@@ -46,8 +45,6 @@ export async function searchPlayers(prefix: string): Promise<Player[]> {
 }
 
 export async function joinSolo(sessionId: string, playerId: string): Promise<Stack> {
-  await ensureReady(sessionId, [playerId]);
-
   const waitingStacks = (
     await db.stacks
       .where('sessionId')
@@ -86,8 +83,6 @@ export async function joinPair(
   player1Id: string,
   player2Id: string
 ): Promise<Stack> {
-  await ensureReady(sessionId, [player1Id, player2Id]);
-
   const teamLockId = crypto.randomUUID();
 
   const waitingWithRoom = (
@@ -133,8 +128,6 @@ export async function joinFoursome(
   sessionId: string,
   playerIds: [string, string, string, string]
 ): Promise<Stack> {
-  await ensureReady(sessionId, [...playerIds]);
-
   const newStack: Stack = {
     id: crypto.randomUUID(),
     sessionId,
@@ -188,4 +181,39 @@ export function computeQueueReadiness(totalWaitingPlayers: number): string {
   }
 
   return `${totalWaitingPlayers} ready — enough for ${gameText}, ${remainder} waiting`;
+}
+
+export async function isPlayerQueued(sessionId: string, playerId: string): Promise<boolean> {
+  const stack = await db.stacks
+    .where('sessionId')
+    .equals(sessionId)
+    .and((s) => s.status === 'waiting' && s.playerIds.includes(playerId))
+    .first();
+  return Boolean(stack);
+}
+
+export async function removePlayerFromQueue(sessionId: string, playerId: string): Promise<void> {
+  const stack = await db.stacks
+    .where('sessionId')
+    .equals(sessionId)
+    .and((s) => s.status === 'waiting' && s.playerIds.includes(playerId))
+    .first();
+  if (!stack) return;
+
+  const remaining = stack.playerIds.filter((id) => id !== playerId);
+  if (remaining.length === 0) {
+    await db.stacks.delete(stack.id);
+    return;
+  }
+
+  const update: Partial<Stack> = { playerIds: remaining };
+  if (stack.teamLockPlayerIds?.includes(playerId)) {
+    update.teamLockId = undefined;
+    update.teamLockPlayerIds = undefined;
+  }
+  await db.stacks.update(stack.id, update);
+}
+
+export async function disbandStack(sessionId: string, stackId: string): Promise<void> {
+  await db.stacks.update(stackId, { status: 'cancelled' });
 }

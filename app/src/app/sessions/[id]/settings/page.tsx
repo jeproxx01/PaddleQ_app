@@ -20,7 +20,7 @@ import {
   SKILL_LEVELS_ORDERED,
   SKILL_LEVEL_LABELS,
 } from '@/shared/display';
-import { getWaitingStacksWithPlayers, type StackWithPlayers } from '@/features/queue/queueService';
+import { getWaitingStacksWithPlayers, removePlayerFromQueue, disbandStack, type StackWithPlayers } from '@/features/queue/queueService';
 import { endSession } from '@/features/session/sessionService';
 import {
   verifyPin,
@@ -28,8 +28,6 @@ import {
   updateCourtCount,
   updateGameMode,
   unlockTeamLock,
-  removePlayerFromQueue,
-  disbandStack,
   overrideSkillLevel,
   seedDemoPlayers,
 } from '@/features/admin/adminService';

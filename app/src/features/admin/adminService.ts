@@ -1,5 +1,6 @@
-import { db, type GameMode, type SkillLevel, type Stack } from '../../db/db';
-import { getOrCreatePlayer, joinSolo } from '../queue/queueService';
+import { db, type GameMode, type SkillLevel } from '../../db/db';
+import { getOrCreatePlayer } from '../queue/queueService';
+import { setCheckInState } from '../lobby/checkInService';
 
 /**
  * PIN-protected organizer controls (ticket #07).
@@ -63,32 +64,6 @@ export async function unlockTeamLock(sessionId: string, stackId: string): Promis
   await db.stacks.update(stackId, { teamLockId: undefined, teamLockPlayerIds: undefined });
 }
 
-export async function removePlayerFromQueue(sessionId: string, playerId: string): Promise<void> {
-  const stack = await db.stacks
-    .where('sessionId')
-    .equals(sessionId)
-    .and((s) => s.status === 'waiting' && s.playerIds.includes(playerId))
-    .first();
-  if (!stack) return;
-
-  const remaining = stack.playerIds.filter((id) => id !== playerId);
-  if (remaining.length === 0) {
-    await db.stacks.delete(stack.id);
-    return;
-  }
-
-  const update: Partial<Stack> = { playerIds: remaining };
-  if (stack.teamLockPlayerIds?.includes(playerId)) {
-    update.teamLockId = undefined;
-    update.teamLockPlayerIds = undefined;
-  }
-  await db.stacks.update(stack.id, update);
-}
-
-export async function disbandStack(sessionId: string, stackId: string): Promise<void> {
-  await db.stacks.update(stackId, { status: 'cancelled' });
-}
-
 export async function overrideSkillLevel(playerId: string, skillLevel: SkillLevel): Promise<void> {
   await db.players.update(playerId, { skillLevel });
 }
@@ -111,7 +86,7 @@ const DEMO_PLAYERS: [string, SkillLevel][] = [
 export async function seedDemoPlayers(sessionId: string): Promise<number> {
   for (const [name, skill] of DEMO_PLAYERS) {
     const player = await getOrCreatePlayer(name, skill);
-    await joinSolo(sessionId, player.id);
+    await setCheckInState(sessionId, player.id, 'ready');
   }
   return DEMO_PLAYERS.length;
 }

@@ -9,6 +9,9 @@ import {
   joinFoursome,
   getWaitingStacksWithPlayers,
   computeQueueReadiness,
+  isPlayerQueued,
+  removePlayerFromQueue,
+  disbandStack,
 } from './queueService';
 
 describe('queueService', () => {
@@ -144,6 +147,46 @@ describe('queueService', () => {
       expect(computeQueueReadiness(6)).toBe('6 ready — enough for 1 game, 2 waiting');
       expect(computeQueueReadiness(8)).toBe('8 ready — enough for 2 games');
       expect(computeQueueReadiness(12)).toBe('12 ready — enough for 3 games');
+    });
+  });
+
+  describe('Queue membership controls', () => {
+    it('reports whether a player is queued', async () => {
+      const p1 = await getOrCreatePlayer('Queued', 'beginner');
+      const p2 = await getOrCreatePlayer('Not queued', 'beginner');
+      await joinSolo(sessionId, p1.id);
+
+      expect(await isPlayerQueued(sessionId, p1.id)).toBe(true);
+      expect(await isPlayerQueued(sessionId, p2.id)).toBe(false);
+    });
+
+    it('removes a player from the queue and releases their team lock', async () => {
+      const p1 = await getOrCreatePlayer('P1', 'intermediate');
+      const p2 = await getOrCreatePlayer('P2', 'advanced');
+      const p3 = await getOrCreatePlayer('P3', 'beginner');
+      const pairStack = await joinPair(sessionId, p1.id, p2.id);
+      await joinSolo(sessionId, p3.id);
+
+      await removePlayerFromQueue(sessionId, p1.id);
+      const stack = await db.stacks.get(pairStack.id);
+      expect(stack?.playerIds).toEqual([p2.id, p3.id]);
+      expect(stack?.teamLockId).toBeUndefined();
+    });
+
+    it('deletes an empty stack when its last player is removed', async () => {
+      const p = await getOrCreatePlayer('Solo', 'beginner');
+      const stack = await joinSolo(sessionId, p.id);
+
+      await removePlayerFromQueue(sessionId, p.id);
+      expect(await db.stacks.get(stack.id)).toBeUndefined();
+    });
+
+    it('disbands a stuck stack', async () => {
+      const p = await getOrCreatePlayer('Stuck', 'beginner');
+      const stack = await joinSolo(sessionId, p.id);
+
+      await disbandStack(sessionId, stack.id);
+      expect((await db.stacks.get(stack.id))?.status).toBe('cancelled');
     });
   });
 });

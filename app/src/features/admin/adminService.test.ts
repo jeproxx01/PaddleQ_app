@@ -9,8 +9,6 @@ import {
   updateCourtCount,
   updateGameMode,
   unlockTeamLock,
-  removePlayerFromQueue,
-  disbandStack,
   overrideSkillLevel,
 } from './adminService';
 
@@ -86,7 +84,7 @@ describe('adminService', () => {
     });
   });
 
-  describe('Team Lock and queue controls', () => {
+  describe('Team Lock', () => {
     it('unlocks a team lock', async () => {
       const session = await startSession({ courtCount: 1 });
       const p1 = await getOrCreatePlayer('P1', 'intermediate');
@@ -97,38 +95,6 @@ describe('adminService', () => {
       const stack = await db.stacks.get(pairStack.id);
       expect(stack?.teamLockId).toBeUndefined();
       expect(stack?.teamLockPlayerIds).toBeUndefined();
-    });
-
-    it('removes a player from the queue and releases their team lock', async () => {
-      const session = await startSession({ courtCount: 1 });
-      const p1 = await getOrCreatePlayer('P1', 'intermediate');
-      const p2 = await getOrCreatePlayer('P2', 'advanced');
-      const p3 = await getOrCreatePlayer('P3', 'beginner');
-      const pairStack = await joinPair(session.id, p1.id, p2.id);
-      await joinSolo(session.id, p3.id);
-
-      await removePlayerFromQueue(session.id, p1.id);
-      const stack = await db.stacks.get(pairStack.id);
-      expect(stack?.playerIds).toEqual([p2.id, p3.id]);
-      expect(stack?.teamLockId).toBeUndefined();
-    });
-
-    it('deletes an empty stack when its last player is removed', async () => {
-      const session = await startSession({ courtCount: 1 });
-      const p = await getOrCreatePlayer('Solo', 'beginner');
-      const stack = await joinSolo(session.id, p.id);
-
-      await removePlayerFromQueue(session.id, p.id);
-      expect(await db.stacks.get(stack.id)).toBeUndefined();
-    });
-
-    it('disbands a stuck stack', async () => {
-      const session = await startSession({ courtCount: 1 });
-      const p = await getOrCreatePlayer('Stuck', 'beginner');
-      const stack = await joinSolo(session.id, p.id);
-
-      await disbandStack(session.id, stack.id);
-      expect((await db.stacks.get(stack.id))?.status).toBe('cancelled');
     });
   });
 

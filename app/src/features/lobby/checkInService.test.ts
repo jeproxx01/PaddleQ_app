@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { db } from '../../db/db';
+import { isPlayerQueued } from '../queue/queueService';
 import {
   getOrCreateSessionPlayer,
   setCheckInState,
-  ensureReady,
   getSessionPlayersWithDetails,
   getRosterCounts,
 } from './checkInService';
@@ -55,20 +55,18 @@ describe('checkInService', () => {
     expect(sp?.checkInState).toBe('resting');
   });
 
-  it('marks players ready, upgrading not_here players but not downgrading ready ones', async () => {
-    const a = mkPlayer('A');
-    const b = mkPlayer('B');
-    await db.players.bulkAdd([a, b]);
+  it('keeps queue membership in sync with check-in state', async () => {
+    const p = mkPlayer('Carl');
+    await db.players.add(p);
 
-    await getOrCreateSessionPlayer(sessionId, a.id, 'not_here');
-    await getOrCreateSessionPlayer(sessionId, b.id, 'ready');
+    await setCheckInState(sessionId, p.id, 'ready');
+    expect(await isPlayerQueued(sessionId, p.id)).toBe(true);
 
-    await ensureReady(sessionId, [a.id, b.id]);
+    await setCheckInState(sessionId, p.id, 'resting');
+    expect(await isPlayerQueued(sessionId, p.id)).toBe(false);
 
-    const aSp = await db.sessionPlayers.where('playerId').equals(a.id).first();
-    const bSp = await db.sessionPlayers.where('playerId').equals(b.id).first();
-    expect(aSp?.checkInState).toBe('ready');
-    expect(bSp?.checkInState).toBe('ready');
+    await setCheckInState(sessionId, p.id, 'ready');
+    expect(await isPlayerQueued(sessionId, p.id)).toBe(true);
   });
 
   it('returns roster entries joined with player details', async () => {
