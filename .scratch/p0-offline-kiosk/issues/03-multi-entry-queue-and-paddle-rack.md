@@ -14,3 +14,15 @@
 - [x] Solo walk-in entries automatically merge into the oldest incomplete Stack (1/4 $\rightarrow$ 2/4 $\rightarrow$ 3/4 $\rightarrow$ 4/4) rather than creating fragmented rows.
 - [x] Visual Paddle Rack displays queued Stacks with visible position badges (#1 Next Up, #2 On Deck) and readiness counts ("8 ready — enough for 2 games").
 - [x] Queue state and player directory persist reliably to IndexedDB with UUID primary keys.
+
+## Retrofit (QMaster Parity — required)
+
+> [!WARNING]
+> The skill-level enum and the Paddle Rack surface both change. The shared `players.skillLevel` type change must land before the dispatch engine (`#04`) and new tickets are started.
+
+- [ ] **Expand the skill-level enum** from 3 → 5 values on `players.skillLevel`: `beginner`, `low-intermediate`, `intermediate`, `high-intermediate`, `advanced`.
+- [ ] **Add a `gender` field** to the player record (used for Mixed Doubles and mixing rules).
+- [ ] **Migrate existing IndexedDB player records** to the new 5-tier enum without data loss.
+- [ ] **Rebuild the skill picker** to offer all five tiers on first join.
+- [ ] **Move the Paddle Rack to the `/sessions/[id]/queue` route** instead of the standalone section.
+- [ ] **Add check-in states** (`Not here`, `Ready`, `Resting`) with the Lobby status tabs and the Ready→queue transition.

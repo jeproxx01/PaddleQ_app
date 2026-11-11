@@ -1,6 +1,6 @@
 # 08: Kiosk End-to-End Playwright Suite and Offline Hardening
 
-**What to build:** An end-to-end integration and usability verification suite using Playwright with the Page Object Model (`KioskPageObject`) simulating a tablet kiosk in sunlight. Exercises the full open-play lifecycle: player joins, queue progression, automated dispatches, audio announcement spies, score entries, rotation capping, and organizer overrides. Verifies complete state survival across page reloads and tests rapid multi-touch safety against race conditions.
+**What to build:** An end-to-end integration and usability verification suite using Playwright with the Page Object Model (`KioskPageObject`) simulating a tablet kiosk in sunlight. Exercises the full multi-screen workflow and open-play lifecycle: Landing → Wizard → Lobby → Live, player joins, check-in states, queue progression, automated dispatches, audio announcement spies, score entries, rotation capping, and organizer overrides. Verifies complete state survival across page reloads and tests rapid multi-touch safety against race conditions. Once `#09`–`#14` land, the suite also covers Challenge Court, Time-Based, QR check-in, the `/show` broadcast, device linking, and analytics export.
 
 **Blocked by:** 05: Web Speech API TTS Caller and Full-Screen Court Call Flash, 07: PIN Admin Drawer with Mid-Session Adjustments and Emergency Controls
 
@@ -14,3 +14,10 @@
 - [ ] Offline & reload test: Add players and start games $\rightarrow$ trigger page reload $\rightarrow$ verify all courts, timers, and queues restore without state loss.
 - [ ] Rapid multi-touch race-condition safety: Rapid simultaneous join/score taps do not cause duplicate dispatches or corrupted stack states.
 - [ ] Touch target audit: Verify all primary touch targets meet or exceed 56px height for tablet usability.
+- [ ] Workflow journey: Landing → 4-step Wizard → Lobby (check-in states) → Live (sidebar routes render).
+- [ ] Check-in states: Verify `Not here` / `Ready` / `Resting` transitions and the Ready→queue handoff.
+- [ ] Game mode coverage (post `#09`/`#10`): Challenge Court streak cap and Time-Based countdown → warning flash → auto-call.
+- [ ] QR check-in (post `#11`): Scan flow lands on a local-network position page.
+- [ ] Broadcast screen (post `#12`): `/show` renders live court and queue state read-only.
+- [ ] Device linking (post `#13`): Link two devices via join code and verify role-scoped behavior.
+- [ ] Analytics export (post `#14`): Session recap renders and `.xlsx` export downloads.

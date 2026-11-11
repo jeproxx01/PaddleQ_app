@@ -13,3 +13,15 @@
 - [x] Dispatched court transitions from `OPEN` to `IN PLAY` with assigned players and starts its match timer.
 - [x] Tappable "Why these 4?" badge renders on the Court card, opening an explanation tooltip/modal detailing the applied criteria (e.g., "Waited longest · Skill mix · New partners").
 - [x] Vitest invariant tests verify that no eligible player outside the candidate window jumps ahead, and incomplete courts are never starved while 4+ eligible players wait.
+
+## Retrofit (QMaster Parity — required)
+
+> [!WARNING]
+> The dispatch window widens from 6–8 to the first-14, the ranking criteria gain a repeat-opponent penalty, and a full audit trail is added.
+
+- [ ] **Widen the candidate window** from the oldest 6–8 to the **first 14 eligible waiting players** in FIFO order.
+- [ ] **Update the ranking criteria** to balance all five skill tiers (not three) and add a **repeat-opponent penalty** (penalizing any repeat pairing from recent matches, not just repeat partners).
+- [ ] **Add the audit trail**: log every dispatch decision with timestamp, chosen foursome, and reasoning.
+- [ ] **Update the "Why these 4?" generator** to reflect the new criteria strings (e.g., "Waited longest", "Skill mix", "New partners", "No repeat opponents").
+- [ ] **Keep Team Lock pairs intact** and apply Mixed Doubles / gender mixing rules when ranking foursomes.
+- [ ] **Update Vitest invariants** for the first-14 window and repeat-opponent penalty.
