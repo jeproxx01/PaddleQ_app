@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Volume2, VolumeX, Activity, RefreshCw, Users } from 'lucide-react';
@@ -8,6 +8,7 @@ import { endSession } from '@/features/session/sessionService';
 import { useSessionBoard } from '@/features/session/useSessionBoard';
 import { useSessionId } from '@/features/layout/SessionContext';
 import { CourtGrid } from '@/features/courts/CourtGrid';
+import { CourtCallModal } from '@/features/courts/CourtCallModal';
 import { WhyTheseFourModal } from '@/features/dispatch/WhyTheseFourModal';
 import { ScorekeeperModal } from '@/features/scoring/ScorekeeperModal';
 import { GAME_MODE_LABELS } from '@/shared/display';
@@ -17,9 +18,14 @@ export default function CourtsPage() {
   const router = useRouter();
   const sessionId = useSessionId();
 
-  const { session, courts, stacks, loading, refresh } = useSessionBoard(sessionId);
+  const { session, courts, stacks, calls, loading, refresh } = useSessionBoard(sessionId);
   const [whyTheseFourCourt, setWhyTheseFourCourt] = useState<CourtWithMatch | null>(null);
   const [scoreCourt, setScoreCourt] = useState<CourtWithMatch | null>(null);
+  const [callIndex, setCallIndex] = useState(0);
+
+  useEffect(() => {
+    setCallIndex(0);
+  }, [calls]);
 
   if (loading) {
     return (
@@ -114,6 +120,14 @@ export default function CourtsPage() {
           sessionId={sessionId}
           onClose={() => setScoreCourt(null)}
           onScored={refresh}
+        />
+      )}
+
+      {calls.length > 0 && callIndex < calls.length && (
+        <CourtCallModal
+          courtNumber={calls[callIndex].courtNumber}
+          playerNames={calls[callIndex].playerNames}
+          onDismiss={() => setCallIndex((i) => i + 1)}
         />
       )}
     </div>
