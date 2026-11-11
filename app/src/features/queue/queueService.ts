@@ -218,42 +218,23 @@ export async function disbandStack(sessionId: string, stackId: string): Promise<
   await db.stacks.update(stackId, { status: 'cancelled' });
 }
 
-/** Returns the next `limit` waiting players in line, excluding a given stack. */
-export async function getNextInLinePlayers(
+/** Returns the next waiting stacks (with players) in line after the given stack. */
+export async function getNextStacks(
   sessionId: string,
-  excludeStackId: string,
+  currentStackId: string,
   limit = 3
-): Promise<Player[]> {
-  const stacks = (await db.stacks.where('sessionId').equals(sessionId).toArray())
-    .filter((s) => s.status === 'waiting' && s.id !== excludeStackId)
-    .sort((a, b) => a.queuedAt - b.queuedAt);
-
-  const ids: string[] = [];
-  for (const s of stacks) {
-    for (const id of s.playerIds) {
-      if (!ids.includes(id)) ids.push(id);
-      if (ids.length >= limit) break;
-    }
-    if (ids.length >= limit) break;
-  }
-  if (ids.length === 0) return [];
-
-  const players = await db.players.where('id').anyOf(ids).toArray();
-  const map = new Map(players.map((p) => [p.id, p]));
-  return ids.map((id) => map.get(id)!).filter(Boolean);
+): Promise<StackWithPlayers[]> {
+  const stacks = await getWaitingStacksWithPlayers(sessionId);
+  return stacks.filter((s) => s.id !== currentStackId).slice(0, limit);
 }
 
-/** Moves a waiting player out of their current stack and into the target stack. */
-export async function movePlayerToStack(
-  sessionId: string,
-  playerId: string,
-  targetStackId: string
-): Promise<boolean> {
-  const target = await db.stacks.get(targetStackId);
-  if (!target || target.status !== 'waiting' || target.playerIds.length >= 4) return false;
-  if (target.playerIds.includes(playerId)) return false;
+/** Swaps the queue positions of two waiting stacks. */
+export async function swapStacks(sessionId: string, aId: string, bId: string): Promise<void> {
+  const a = await db.stacks.get(aId);
+  const b = await db.stacks.get(bId);
+  if (!a || !b) return;
 
-  await removePlayerFromQueue(sessionId, playerId);
-  await db.stacks.update(targetStackId, { playerIds: [...target.playerIds, playerId] });
-  return true;
+  const aQueuedAt = a.queuedAt;
+  await db.stacks.update(aId, { queuedAt: b.queuedAt });
+  await db.stacks.update(bId, { queuedAt: aQueuedAt === b.queuedAt ? b.queuedAt + 1 : aQueuedAt });
 }

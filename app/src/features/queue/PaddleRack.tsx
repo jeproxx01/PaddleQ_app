@@ -7,6 +7,7 @@ import { SKILL_LEVEL_ABBREV } from '../../shared/display';
 import { StackWithPlayers, computeQueueReadiness, disbandStack } from './queueService';
 import { JoinModal } from './JoinModal';
 import { StackEditModal } from './StackEditModal';
+import { ChangeStackModal } from './ChangeStackModal';
 
 interface PaddleRackProps {
   sessionId: string;
@@ -19,6 +20,7 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
   const [modalMode, setModalMode] = useState<'solo' | 'pair' | 'foursome' | null>(null);
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editStack, setEditStack] = useState<StackWithPlayers | null>(null);
+  const [changeStack, setChangeStack] = useState<StackWithPlayers | null>(null);
 
   const totalWaitingPlayers = stacks.reduce((sum, s) => sum + s.playerIds.length, 0);
   const readinessText = computeQueueReadiness(totalWaitingPlayers);
@@ -216,7 +218,7 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
                   )}
                   <button
                     type="button"
-                    onClick={() => setEditStack(stack)}
+                    onClick={() => setChangeStack(stack)}
                     className={`${isFull ? 'w-11' : 'flex-1'} h-11 rounded-lg bg-obsidian-dark hover:bg-card-border border border-card-border text-text-secondary hover:text-white flex items-center justify-center gap-1.5 text-xs font-semibold`}
                     title="Change players"
                   >
@@ -277,6 +279,16 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
           sessionId={sessionId}
           stack={editStack}
           onClose={() => setEditStack(null)}
+          onChanged={onQueueUpdated}
+        />
+      )}
+
+      {/* Change Stack Modal (next stacks) */}
+      {changeStack && (
+        <ChangeStackModal
+          sessionId={sessionId}
+          currentStackId={changeStack.id}
+          onClose={() => setChangeStack(null)}
           onChanged={onQueueUpdated}
         />
       )}
