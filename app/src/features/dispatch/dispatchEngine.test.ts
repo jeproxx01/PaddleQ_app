@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import { db } from '../../db/db';
 import { startSession } from '../session/sessionService';
 import { getOrCreatePlayer, joinSolo, joinPair } from '../queue/queueService';
-import { runAutoDispatch, evaluateCandidateFoursomes } from './dispatchEngine';
+import { runAutoDispatch, evaluateCandidateFoursomes, dispatchStack } from './dispatchEngine';
 
 describe('dispatchEngine', () => {
   let sessionId: string;
@@ -138,6 +138,51 @@ describe('dispatchEngine', () => {
       expect(audit!.criteria).toContain('Waited longest');
       expect(audit!.evaluated.length).toBeGreaterThan(0);
       expect(audit!.evaluated.every((e) => e.playerIds.length === 4)).toBe(true);
+    });
+  });
+
+  describe('Manual dispatch', () => {
+    it('dispatches a specific complete stack on demand', async () => {
+      const players = await Promise.all([
+        getOrCreatePlayer('A', 'beginner'),
+        getOrCreatePlayer('B', 'beginner'),
+        getOrCreatePlayer('C', 'beginner'),
+        getOrCreatePlayer('D', 'beginner'),
+      ]);
+      let stackId: string | undefined;
+      for (const p of players) {
+        const s = await joinSolo(sessionId, p.id);
+        stackId = s.id; // solos merge into one 4/4 stack
+      }
+
+      const fullStack = await db.stacks.get(stackId!);
+      expect(fullStack?.playerIds).toHaveLength(4);
+
+      const match = await dispatchStack(sessionId, stackId!);
+      expect(match).not.toBeNull();
+      expect(match!.playerIds).toHaveLength(4);
+      expect(match!.status).toBe('in_play');
+
+      const court1 = await db.courts
+        .where('sessionId')
+        .equals(sessionId)
+        .and((c) => c.courtNumber === 1)
+        .first();
+      expect(court1?.status).toBe('in_play');
+      expect(court1?.activeMatchId).toBe(match!.id);
+
+      const stack = await db.stacks.get(stackId!);
+      expect(stack?.status).toBe('dispatched');
+    });
+
+    it('returns null for an incomplete stack', async () => {
+      const p1 = await getOrCreatePlayer('Solo A', 'beginner');
+      const p2 = await getOrCreatePlayer('Solo B', 'beginner');
+      await joinSolo(sessionId, p1.id);
+      const stack = await joinSolo(sessionId, p2.id);
+
+      const match = await dispatchStack(sessionId, stack.id);
+      expect(match).toBeNull();
     });
   });
 

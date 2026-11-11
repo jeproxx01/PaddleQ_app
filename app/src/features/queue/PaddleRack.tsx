@@ -1,20 +1,24 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, Users, Lock, Clock, PlusCircle } from 'lucide-react';
+import { User, Users, Lock, Clock, PlusCircle, MoreVertical, Play, Pencil } from 'lucide-react';
 import { type SkillLevel } from '../../db/db';
 import { SKILL_LEVEL_ABBREV } from '../../shared/display';
-import { StackWithPlayers, computeQueueReadiness } from './queueService';
+import { StackWithPlayers, computeQueueReadiness, disbandStack } from './queueService';
 import { JoinModal } from './JoinModal';
+import { StackEditModal } from './StackEditModal';
 
 interface PaddleRackProps {
   sessionId: string;
   stacks: StackWithPlayers[];
   onQueueUpdated: () => void;
+  onStartStack?: (stack: StackWithPlayers) => void;
 }
 
-export function PaddleRack({ sessionId, stacks, onQueueUpdated }: PaddleRackProps) {
+export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: PaddleRackProps) {
   const [modalMode, setModalMode] = useState<'solo' | 'pair' | 'foursome' | null>(null);
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
+  const [editStack, setEditStack] = useState<StackWithPlayers | null>(null);
 
   const totalWaitingPlayers = stacks.reduce((sum, s) => sum + s.playerIds.length, 0);
   const readinessText = computeQueueReadiness(totalWaitingPlayers);
@@ -55,6 +59,12 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated }: PaddleRackProp
       default:
         return 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40';
     }
+  };
+
+  const handleDisband = async (stackId: string) => {
+    await disbandStack(sessionId, stackId);
+    setMenuOpen(null);
+    onQueueUpdated();
   };
 
   return (
@@ -123,7 +133,7 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated }: PaddleRackProp
             return (
               <div
                 key={stack.id}
-                className={`rounded-2xl bg-card-surface border p-4 flex flex-col justify-between transition-all shadow-md ${
+                className={`relative rounded-2xl bg-card-surface border p-4 flex flex-col justify-between transition-all shadow-md ${
                   idx === 0 && isFull
                     ? 'border-volt/50 shadow-volt/5'
                     : idx === 1
@@ -191,6 +201,50 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated }: PaddleRackProp
                   </span>
                   <span className="capitalize">{stack.entryType}</span>
                 </div>
+
+                {/* Actions */}
+                <div className="mt-3 flex items-center gap-2">
+                  {isFull && onStartStack && (
+                    <button
+                      type="button"
+                      onClick={() => onStartStack(stack)}
+                      className="flex-1 h-11 rounded-lg bg-volt hover:bg-volt-hover text-obsidian-dark font-bold text-sm flex items-center justify-center gap-1.5"
+                    >
+                      <Play className="w-4 h-4 fill-current" />
+                      Start
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setEditStack(stack)}
+                    className={`${isFull ? 'w-11' : 'flex-1'} h-11 rounded-lg bg-obsidian-dark hover:bg-card-border border border-card-border text-text-secondary hover:text-white flex items-center justify-center gap-1.5 text-xs font-semibold`}
+                    title="Change players"
+                  >
+                    <Pencil className="w-4 h-4" />
+                    {!isFull && 'Change'}
+                  </button>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setMenuOpen(menuOpen === stack.id ? null : stack.id)}
+                      className="w-11 h-11 rounded-lg bg-obsidian-dark hover:bg-card-border border border-card-border text-text-secondary hover:text-white flex items-center justify-center"
+                      title="More options"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                    {menuOpen === stack.id && (
+                      <div className="absolute right-0 top-full mt-1 z-20 w-40 rounded-xl bg-card-surface border border-card-border shadow-xl overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => handleDisband(stack.id)}
+                          className="w-full text-left px-3 py-2.5 text-sm text-red-300 hover:bg-obsidian-dark"
+                        >
+                          Disband stack
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -204,6 +258,16 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated }: PaddleRackProp
           initialMode={modalMode}
           onClose={() => setModalMode(null)}
           onJoined={onQueueUpdated}
+        />
+      )}
+
+      {/* Stack Edit Modal */}
+      {editStack && (
+        <StackEditModal
+          sessionId={sessionId}
+          stack={editStack}
+          onClose={() => setEditStack(null)}
+          onChanged={onQueueUpdated}
         />
       )}
     </div>

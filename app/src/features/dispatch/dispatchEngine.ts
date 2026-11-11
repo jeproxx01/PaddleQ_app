@@ -464,3 +464,67 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
 
   return [match];
 }
+
+/**
+ * Manually dispatches a specific, complete (4-player) waiting stack to the next
+ * open court — used by the queue card's "Start" button. Returns the created match,
+ * or null if the stack isn't a full waiting stack or no court is open.
+ */
+export async function dispatchStack(sessionId: string, stackId: string): Promise<Match | null> {
+  const stack = await db.stacks.get(stackId);
+  if (!stack || stack.status !== 'waiting' || stack.playerIds.length !== MIN_PLAYERS_PER_COURT) {
+    return null;
+  }
+
+  const session = await db.sessions.get(sessionId);
+  if (!session) return null;
+
+  const openCourt = (await db.courts.where('sessionId').equals(sessionId).toArray())
+    .filter((c) => c.status === 'open')
+    .sort((a, b) => a.courtNumber - b.courtNumber)[0];
+  if (!openCourt) return null;
+
+  const players = await db.players.where('id').anyOf(stack.playerIds).toArray();
+  const playerMap = new Map(players.map((p) => [p.id, p]));
+  const four = stack.playerIds
+    .map((id) => playerMap.get(id))
+    .filter((p): p is Player => Boolean(p));
+  if (four.length !== MIN_PLAYERS_PER_COURT) return null;
+
+  const teamLockPairs = stack.teamLockPlayerIds ? [stack.teamLockPlayerIds] : [];
+  const evaluation = evaluateCandidateFoursomes(four, [], teamLockPairs);
+
+  const now = Date.now();
+  const maleCount = four.filter((p) => p.gender === 'male').length;
+  const femaleCount = four.filter((p) => p.gender === 'female').length;
+  const mixedDoubles = maleCount === 2 && femaleCount === 2;
+
+  const selectionReasons = [REASON_WAITED_LONGEST, ...evaluation.reasons];
+  const match: Match = {
+    id: crypto.randomUUID(),
+    sessionId,
+    courtId: openCourt.id,
+    gameMode: session.gameMode,
+    playerIds: four.map((p) => p.id),
+    team1PlayerIds: evaluation.team1.map((p) => p.id),
+    team2PlayerIds: evaluation.team2.map((p) => p.id),
+    consecutiveWins: 0,
+    selectionReasons,
+    mixedDoubles,
+    status: 'in_play',
+    startedAt: now,
+  };
+
+  await db.matches.add(match);
+  await db.courts.update(openCourt.id, {
+    status: 'in_play',
+    activeMatchId: match.id,
+    updatedAt: now,
+  });
+  await db.stacks.update(stackId, { status: 'dispatched' });
+  await Promise.all(
+    four.map((p) => db.players.update(p.id, { gamesPlayed: (p.gamesPlayed ?? 0) + 1 }))
+  );
+
+  return match;
+}

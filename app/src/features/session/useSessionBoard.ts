@@ -32,13 +32,16 @@ export function useSessionBoard(sessionId: string) {
       }
       setSession(current);
 
-      // Automatically dispatch waiting players into any Open courts.
+      // Automatically dispatch waiting players into any Open courts, but only when
+      // Auto-fill is enabled — otherwise the organizer starts full stacks manually.
       const MAX_DISPATCH_ROUNDS = 12;
       const dispatchedMatches: Match[] = [];
-      for (let i = 0; i < MAX_DISPATCH_ROUNDS; i++) {
-        const dispatched = await runAutoDispatch(sessionId);
-        if (dispatched.length === 0) break;
-        dispatchedMatches.push(...dispatched);
+      if (current.autoFill) {
+        for (let i = 0; i < MAX_DISPATCH_ROUNDS; i++) {
+          const dispatched = await runAutoDispatch(sessionId);
+          if (dispatched.length === 0) break;
+          dispatchedMatches.push(...dispatched);
+        }
       }
 
       // Build court-call records for newly dispatched matches.
