@@ -60,8 +60,19 @@ export async function recordScore(
 
   const [winningIds, losingIds] = winningAndLosingIds(match, winningTeam);
 
-  const isWinnersStay = session.gameMode === 'winners-stay-split';
-  const consecutiveWins = isWinnersStay ? match.consecutiveWins + 1 : match.consecutiveWins;
+  const isChallenge = session.gameMode === 'challenge-court';
+  const isWinnersStay = session.gameMode === 'winners-stay-split' || isChallenge;
+
+  let consecutiveWins: number;
+  if (isChallenge) {
+    // Challenge Court: team1 holds the court. A successful defense increments the
+    // streak; a challenger win (or the first match) starts the new holder at 1.
+    consecutiveWins =
+      winningTeam === 1 && match.consecutiveWins > 0 ? match.consecutiveWins + 1 : 1;
+  } else {
+    consecutiveWins = isWinnersStay ? match.consecutiveWins + 1 : match.consecutiveWins;
+  }
+
   const capped = isWinnersStay && consecutiveWins >= MAX_WIN_LIMIT;
 
   const now = Date.now();

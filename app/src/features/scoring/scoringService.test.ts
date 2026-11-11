@@ -18,7 +18,7 @@ function mkPlayer(name: string) {
 }
 
 async function seedInPlayMatch(
-  gameMode: 'open-play' | 'winners-stay-split',
+  gameMode: 'open-play' | 'winners-stay-split' | 'challenge-court',
   consecutiveWins = 0
 ) {
   const session = await startSession({ courtCount: 1, gameMode });
@@ -123,6 +123,49 @@ describe('scoringService', () => {
       await expect(recordScore(session.id, matchId, 11, 8, 1)).rejects.toThrow(
         'Match is not in play'
       );
+    });
+  });
+
+  describe('Challenge Court (king-of-the-court)', () => {
+    it('lets the winning holder keep the court with a streak of 1', async () => {
+      const { session, players, matchId } = await seedInPlayMatch('challenge-court', 0);
+
+      const result = await recordScore(session.id, matchId, 11, 6, 1);
+
+      expect(result.winnersStay).toBe(true);
+      expect(result.capped).toBe(false);
+      expect(result.stayingPlayerIds).toEqual([players[0].id, players[1].id]);
+
+      const match = await db.matches.get(matchId);
+      expect(match?.consecutiveWins).toBe(1);
+    });
+
+    it('forces the holder off after two consecutive defenses (streak cap)', async () => {
+      const { session, players, matchId } = await seedInPlayMatch('challenge-court', 1);
+
+      const result = await recordScore(session.id, matchId, 11, 9, 1);
+
+      expect(result.capped).toBe(true);
+      expect(result.winnersStay).toBe(false);
+      expect(result.rotatingPlayerIds).toHaveLength(4);
+
+      const match = await db.matches.get(matchId);
+      expect(match?.consecutiveWins).toBe(2);
+    });
+
+    it('crowns the challenger as the new holder with a fresh streak', async () => {
+      const { session, players, matchId } = await seedInPlayMatch('challenge-court', 1);
+
+      const result = await recordScore(session.id, matchId, 7, 11, 2);
+
+      expect(result.winnersStay).toBe(true);
+      expect(result.capped).toBe(false);
+      // Challengers (team 2) stay; the old holders (team 1) rotate out.
+      expect(result.stayingPlayerIds).toEqual([players[2].id, players[3].id]);
+      expect(result.rotatingPlayerIds).toEqual([players[0].id, players[1].id]);
+
+      const match = await db.matches.get(matchId);
+      expect(match?.consecutiveWins).toBe(1);
     });
   });
 
