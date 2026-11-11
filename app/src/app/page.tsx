@@ -12,6 +12,7 @@ import { StackWithPlayers, getWaitingStacksWithPlayers } from '../features/queue
 import { PaddleRack } from '../features/queue/PaddleRack';
 import { runAutoDispatch } from '../features/dispatch/dispatchEngine';
 import { WhyTheseFourModal } from '../features/dispatch/WhyTheseFourModal';
+import { ScorekeeperModal } from '../features/scoring/ScorekeeperModal';
 
 export default function KioskPage() {
   const [session, setSession] = useState<Session | null>(null);
@@ -19,6 +20,7 @@ export default function KioskPage() {
   const [stacks, setStacks] = useState<StackWithPlayers[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [whyTheseFourCourt, setWhyTheseFourCourt] = useState<CourtWithMatch | null>(null);
+  const [scoreCourt, setScoreCourt] = useState<CourtWithMatch | null>(null);
 
   const loadActiveSession = useCallback(async () => {
     setLoading(true);
@@ -140,7 +142,11 @@ export default function KioskPage() {
         </div>
 
         {/* Dynamic Court Grid */}
-        <CourtGrid courts={courts} onWhyTheseFour={setWhyTheseFourCourt} />
+        <CourtGrid
+          courts={courts}
+          onWhyTheseFour={setWhyTheseFourCourt}
+          onRecordScore={setScoreCourt}
+        />
 
         {/* Visual Paddle Rack */}
         <PaddleRack
@@ -155,6 +161,16 @@ export default function KioskPage() {
         <WhyTheseFourModal
           court={whyTheseFourCourt}
           onClose={() => setWhyTheseFourCourt(null)}
+        />
+      )}
+
+      {/* Scorekeeper Modal */}
+      {scoreCourt && (
+        <ScorekeeperModal
+          court={scoreCourt}
+          sessionId={session.id}
+          onClose={() => setScoreCourt(null)}
+          onScored={loadActiveSession}
         />
       )}
     </div>
