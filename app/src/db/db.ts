@@ -89,6 +89,20 @@ export interface Court {
 
 export type MatchStatus = 'in_play' | 'completed' | 'abandoned';
 
+export interface EvaluatedFoursome {
+  playerIds: string[];
+  fifoScore: number;
+  skillImbalance: number;
+  noveltyPenalty: number;
+}
+
+export interface DispatchAudit {
+  timestamp: number;
+  candidatePoolSize: number;
+  criteria: string[];
+  evaluated: EvaluatedFoursome[];
+}
+
 export interface Match {
   id: string;
   sessionId: string;
@@ -104,6 +118,7 @@ export interface Match {
   selectionReasons: string[];
   mixedDoubles: boolean;
   status: MatchStatus;
+  auditTrail?: DispatchAudit;
   startedAt: number;
   completedAt?: number;
 }

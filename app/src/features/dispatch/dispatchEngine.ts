@@ -1,5 +1,5 @@
 import { db } from '../../db/db';
-import type { Match, Player, SkillLevel, Stack } from '../../db/db';
+import type { DispatchAudit, EvaluatedFoursome, Match, Player, SkillLevel, Stack } from '../../db/db';
 
 /**
  * QMaster Composite Dispatch Engine.
@@ -396,6 +396,7 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
   const recentOpponentPairs = buildRecentOpponentPairs(recentMatches);
 
   let best: (ScoredFoursome & { fifoScore: number }) | null = null;
+  const evaluated: EvaluatedFoursome[] = [];
 
   for (const idxCombo of combinationsOfIndices(windowPlayers.length, MIN_PLAYERS_PER_COURT)) {
     const comboPlayers = idxCombo.map((i) => windowPlayers[i]);
@@ -404,6 +405,13 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
     const scored = scoreFoursome(comboPlayers, recentPartnerPairs, recentOpponentPairs, teamLockPairs);
     const fifoScore = idxCombo.reduce((sum, i) => sum + i, 0);
     const candidate = { ...scored, fifoScore };
+
+    evaluated.push({
+      playerIds: comboPlayers.map((p) => p.id),
+      fifoScore,
+      skillImbalance: scored.skillImbalance,
+      noveltyPenalty: scored.partnerNoveltyPenalty + scored.opponentNoveltyPenalty,
+    });
 
     if (!best || isBetterCandidate(candidate, best)) best = candidate;
   }
@@ -417,6 +425,14 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
   const femaleCount = best.players.filter((p) => p.gender === 'female').length;
   const mixedDoubles = maleCount === 2 && femaleCount === 2;
 
+  const selectionReasons = [REASON_WAITED_LONGEST, ...best.reasons];
+  const auditTrail: DispatchAudit = {
+    timestamp: now,
+    candidatePoolSize: windowPlayers.length,
+    criteria: selectionReasons,
+    evaluated,
+  };
+
   const match: Match = {
     id: crypto.randomUUID(),
     sessionId,
@@ -426,9 +442,10 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
     team1PlayerIds: best.team1.map((p) => p.id),
     team2PlayerIds: best.team2.map((p) => p.id),
     consecutiveWins: 0,
-    selectionReasons: [REASON_WAITED_LONGEST, ...best.reasons],
+    selectionReasons,
     mixedDoubles,
     status: 'in_play',
+    auditTrail,
     startedAt: now,
   };
 

@@ -116,6 +116,31 @@ describe('dispatchEngine', () => {
     });
   });
 
+  describe('Dispatch audit trail', () => {
+    it('logs a full audit trail for every dispatch decision', async () => {
+      const players = await Promise.all([
+        getOrCreatePlayer('Alpha', 'intermediate'),
+        getOrCreatePlayer('Beta', 'intermediate'),
+        getOrCreatePlayer('Gamma', 'advanced'),
+        getOrCreatePlayer('Delta', 'beginner'),
+        getOrCreatePlayer('Echo', 'beginner'),
+        getOrCreatePlayer('Foxtrot', 'beginner'),
+      ]);
+      for (const p of players) await joinSolo(sessionId, p.id);
+
+      const dispatches = await runAutoDispatch(sessionId);
+      expect(dispatches).toHaveLength(1);
+
+      const audit = dispatches[0].auditTrail;
+      expect(audit).toBeDefined();
+      expect(audit!.timestamp).toBeGreaterThan(0);
+      expect(audit!.candidatePoolSize).toBe(6);
+      expect(audit!.criteria).toContain('Waited longest');
+      expect(audit!.evaluated.length).toBeGreaterThan(0);
+      expect(audit!.evaluated.every((e) => e.playerIds.length === 4)).toBe(true);
+    });
+  });
+
   describe('Skill balancing and partner/opponent novelty evaluation', () => {
     const makePlayer = (id: string, skillLevel: 'advanced' | 'beginner' | 'intermediate') => ({
       id,
