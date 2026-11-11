@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, User, Users, ShieldAlert, Sparkles, Check } from 'lucide-react';
-import { SkillLevel } from '../../db/db';
+import { type SkillLevel } from '../../db/db';
+import { SKILL_LEVELS_ORDERED, SKILL_LEVEL_LABELS, SKILL_LEVEL_ABBREV } from '../../shared/display';
 import { getOrCreatePlayer, searchPlayers, joinSolo, joinPair, joinFoursome } from './queueService';
 
 interface JoinModalProps {
@@ -21,7 +22,7 @@ interface PlayerFormData {
 export function JoinModal({ sessionId, initialMode = 'solo', onClose, onJoined }: JoinModalProps) {
   const [entryMode, setEntryMode] = useState<'solo' | 'pair' | 'foursome'>(initialMode);
   const [players, setPlayers] = useState<PlayerFormData[]>([
-    { name: '', skillLevel: 'Intermediate', suggestions: [] },
+    { name: '', skillLevel: 'intermediate', suggestions: [] },
   ]);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -29,18 +30,18 @@ export function JoinModal({ sessionId, initialMode = 'solo', onClose, onJoined }
   // Sync player input count with entryMode
   useEffect(() => {
     if (entryMode === 'solo') {
-      setPlayers((prev) => [prev[0] || { name: '', skillLevel: 'Intermediate', suggestions: [] }]);
+      setPlayers((prev) => [prev[0] || { name: '', skillLevel: 'intermediate', suggestions: [] }]);
     } else if (entryMode === 'pair') {
       setPlayers((prev) => [
-        prev[0] || { name: '', skillLevel: 'Intermediate', suggestions: [] },
-        prev[1] || { name: '', skillLevel: 'Intermediate', suggestions: [] },
+        prev[0] || { name: '', skillLevel: 'intermediate', suggestions: [] },
+        prev[1] || { name: '', skillLevel: 'intermediate', suggestions: [] },
       ]);
     } else if (entryMode === 'foursome') {
       setPlayers((prev) => [
-        prev[0] || { name: '', skillLevel: 'Intermediate', suggestions: [] },
-        prev[1] || { name: '', skillLevel: 'Intermediate', suggestions: [] },
-        prev[2] || { name: '', skillLevel: 'Intermediate', suggestions: [] },
-        prev[3] || { name: '', skillLevel: 'Intermediate', suggestions: [] },
+        prev[0] || { name: '', skillLevel: 'intermediate', suggestions: [] },
+        prev[1] || { name: '', skillLevel: 'intermediate', suggestions: [] },
+        prev[2] || { name: '', skillLevel: 'intermediate', suggestions: [] },
+        prev[3] || { name: '', skillLevel: 'intermediate', suggestions: [] },
       ]);
     }
   }, [entryMode]);
@@ -222,7 +223,7 @@ export function JoinModal({ sessionId, initialMode = 'solo', onClose, onJoined }
                       >
                         <Check className="w-3 h-3" />
                         <span>{sug.name}</span>
-                        <span className="text-[10px] opacity-75">({sug.skillLevel[0]})</span>
+                        <span className="text-[10px] opacity-75">({SKILL_LEVEL_ABBREV[sug.skillLevel]})</span>
                       </button>
                     ))}
                   </div>
@@ -234,19 +235,19 @@ export function JoinModal({ sessionId, initialMode = 'solo', onClose, onJoined }
                 <label className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider mb-1.5">
                   Skill Level
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['Beginner', 'Intermediate', 'Advanced'] as SkillLevel[]).map((level) => (
+                <div className="flex flex-wrap gap-2">
+                  {SKILL_LEVELS_ORDERED.map((level) => (
                     <button
                       key={level}
                       type="button"
                       onClick={() => handleSkillChange(idx, level)}
-                      className={`h-11 rounded-lg text-xs font-semibold transition-all ${
+                      className={`h-11 px-3 rounded-lg text-xs font-semibold transition-all ${
                         player.skillLevel === level
                           ? 'border border-volt bg-volt/20 text-volt font-bold'
                           : 'border border-card-border bg-card-surface text-text-secondary hover:text-white'
                       }`}
                     >
-                      {level}
+                      {SKILL_LEVEL_LABELS[level]}
                     </button>
                   ))}
                 </div>

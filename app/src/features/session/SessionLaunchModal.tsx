@@ -2,8 +2,9 @@
 
 import React, { useState } from 'react';
 import { Volume2, VolumeX, Shield, Play, Layers } from 'lucide-react';
-import { RotationMode } from '../../db/db';
-import { startSession } from './sessionService';
+import { type GameMode } from '../../db/db';
+import { GAME_MODES_ORDERED, GAME_MODE_LABELS } from '../../shared/display';
+import { startSession, transitionToLive } from './sessionService';
 import { initializeAudio } from '../../shared/audio';
 
 interface SessionLaunchModalProps {
@@ -12,7 +13,7 @@ interface SessionLaunchModalProps {
 
 export function SessionLaunchModal({ onSessionStarted }: SessionLaunchModalProps) {
   const [courtCount, setCourtCount] = useState<number>(4);
-  const [rotationMode, setRotationMode] = useState<RotationMode>('4-In / 4-Out');
+  const [gameMode, setGameMode] = useState<GameMode>('open-play');
   const [pin, setPin] = useState<string>('1234');
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -33,12 +34,14 @@ export function SessionLaunchModal({ onSessionStarted }: SessionLaunchModalProps
       if (audioEnabled) {
         initializeAudio();
       }
-      await startSession({
+      const session = await startSession({
         courtCount,
-        rotationMode,
+        gameMode,
         pin: pin.trim().length === 4 ? pin.trim() : '1234',
         audioEnabled,
       });
+      // Temporary stand-in for the Wizard → Lobby journey: jump straight to Live.
+      await transitionToLive(session.id);
       onSessionStarted();
     } catch (err) {
       console.error('Failed to launch session:', err);
@@ -89,34 +92,26 @@ export function SessionLaunchModal({ onSessionStarted }: SessionLaunchModalProps
             </div>
           </div>
 
-          {/* Rotation Mode */}
+          {/* Game Mode */}
           <div>
             <label className="block text-sm font-semibold uppercase tracking-wider text-text-secondary mb-2">
-              Rotation Mode
+              Game Mode
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setRotationMode('4-In / 4-Out')}
-                className={`h-14 rounded-xl border text-sm font-semibold transition-all ${
-                  rotationMode === '4-In / 4-Out'
-                    ? 'border-volt bg-volt/10 text-volt'
-                    : 'border-card-border bg-obsidian-dark text-text-secondary hover:text-white'
-                }`}
-              >
-                4-In / 4-Out (Standard)
-              </button>
-              <button
-                type="button"
-                onClick={() => setRotationMode('Winners Stay & Split')}
-                className={`h-14 rounded-xl border text-sm font-semibold transition-all ${
-                  rotationMode === 'Winners Stay & Split'
-                    ? 'border-volt bg-volt/10 text-volt'
-                    : 'border-card-border bg-obsidian-dark text-text-secondary hover:text-white'
-                }`}
-              >
-                Winners Stay (2-Win Cap)
-              </button>
+              {GAME_MODES_ORDERED.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setGameMode(mode)}
+                  className={`h-14 rounded-xl border text-sm font-semibold transition-all ${
+                    gameMode === mode
+                      ? 'border-volt bg-volt/10 text-volt'
+                      : 'border-card-border bg-obsidian-dark text-text-secondary hover:text-white'
+                  }`}
+                >
+                  {GAME_MODE_LABELS[mode]}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -139,7 +134,11 @@ export function SessionLaunchModal({ onSessionStarted }: SessionLaunchModalProps
 
             <div>
               <label className="block text-sm font-semibold uppercase tracking-wider text-text-secondary mb-2 flex items-center gap-1.5">
-                {audioEnabled ? <Volume2 className="w-4 h-4 text-volt" /> : <VolumeX className="w-4 h-4 text-text-secondary" />}
+                {audioEnabled ? (
+                  <Volume2 className="w-4 h-4 text-volt" />
+                ) : (
+                  <VolumeX className="w-4 h-4 text-text-secondary" />
+                )}
                 Court Audio
               </label>
               <button

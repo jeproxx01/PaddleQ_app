@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
-import { db, PaddleQDatabase } from './db';
+import { db } from './db';
 
 describe('PaddleQDatabase', () => {
   beforeEach(async () => {
@@ -11,29 +11,36 @@ describe('PaddleQDatabase', () => {
   it('initializes tables with UUID primary keys', async () => {
     expect(db.sessions).toBeDefined();
     expect(db.players).toBeDefined();
+    expect(db.sessionPlayers).toBeDefined();
     expect(db.stacks).toBeDefined();
     expect(db.courts).toBeDefined();
     expect(db.matches).toBeDefined();
+    expect(db.deviceLinks).toBeDefined();
   });
 
   it('can create and retrieve an active Session with valid court count and PIN', async () => {
     const sessionId = crypto.randomUUID();
     await db.sessions.add({
       id: sessionId,
-      status: 'active',
+      name: 'Open Play Session',
+      status: 'lobby',
       courtCount: 4,
-      rotationMode: '4-In / 4-Out',
+      gameMode: 'open-play',
+      recordScores: 'winners-and-scores',
+      targetScore: 11,
       pin: '1234',
       audioEnabled: true,
+      autoFill: false,
+      skillMixing: 'auto-balance',
       startedAt: Date.now(),
     });
 
-    const activeSession = await db.sessions.where('status').equals('active').first();
-    expect(activeSession).toBeDefined();
-    expect(activeSession?.id).toBe(sessionId);
-    expect(activeSession?.courtCount).toBe(4);
-    expect(activeSession?.rotationMode).toBe('4-In / 4-Out');
-    expect(activeSession?.pin).toBe('1234');
-    expect(activeSession?.audioEnabled).toBe(true);
+    const current = await db.sessions.where('status').anyOf(['lobby', 'live']).first();
+    expect(current).toBeDefined();
+    expect(current?.id).toBe(sessionId);
+    expect(current?.courtCount).toBe(4);
+    expect(current?.gameMode).toBe('open-play');
+    expect(current?.pin).toBe('1234');
+    expect(current?.audioEnabled).toBe(true);
   });
 });

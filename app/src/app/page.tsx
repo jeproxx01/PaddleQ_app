@@ -3,7 +3,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Volume2, VolumeX, Shield, Activity, RefreshCw } from 'lucide-react';
 import { Session } from '../db/db';
-import { getActiveSession, endSession } from '../features/session/sessionService';
+import { GAME_MODE_LABELS } from '../shared/display';
+import { getCurrentSession, endSession } from '../features/session/sessionService';
 import { SessionLaunchModal } from '../features/session/SessionLaunchModal';
 import { CourtWithMatch, getCourtsWithMatches } from '../features/courts/courtService';
 import { CourtGrid } from '../features/courts/CourtGrid';
@@ -22,7 +23,7 @@ export default function KioskPage() {
   const loadActiveSession = useCallback(async () => {
     setLoading(true);
     try {
-      const active = await getActiveSession();
+      const active = await getCurrentSession();
       if (active) {
         setSession(active);
         // Automatically dispatch waiting players into any Open courts.
@@ -98,7 +99,7 @@ export default function KioskPage() {
 
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-obsidian-dark border border-card-border text-sm">
             <span className="text-text-secondary">Mode:</span>
-            <span className="font-semibold text-white">{session.rotationMode}</span>
+            <span className="font-semibold text-white">{GAME_MODE_LABELS[session.gameMode]}</span>
           </div>
 
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-obsidian-dark border border-card-border text-sm">

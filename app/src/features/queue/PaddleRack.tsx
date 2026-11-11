@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { User, Users, Lock, Clock, PlusCircle } from 'lucide-react';
+import { type SkillLevel } from '../../db/db';
+import { SKILL_LEVEL_ABBREV } from '../../shared/display';
 import { StackWithPlayers, computeQueueReadiness } from './queueService';
 import { JoinModal } from './JoinModal';
 
@@ -40,12 +42,16 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated }: PaddleRackProp
     );
   };
 
-  const getSkillBadgeColor = (skill: string) => {
+  const getSkillBadgeColor = (skill: SkillLevel) => {
     switch (skill) {
-      case 'Advanced':
+      case 'advanced':
+        return 'bg-fuchsia-950/80 text-fuchsia-300 border-fuchsia-500/40';
+      case 'high-intermediate':
         return 'bg-purple-950/80 text-purple-300 border-purple-500/40';
-      case 'Intermediate':
+      case 'intermediate':
         return 'bg-blue-950/80 text-blue-300 border-blue-500/40';
+      case 'low-intermediate':
+        return 'bg-teal-950/80 text-teal-300 border-teal-500/40';
       default:
         return 'bg-emerald-950/80 text-emerald-300 border-emerald-500/40';
     }
@@ -160,7 +166,7 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated }: PaddleRackProp
                               player.skillLevel
                             )}`}
                           >
-                            {player.skillLevel[0]}
+                            {SKILL_LEVEL_ABBREV[player.skillLevel]}
                           </span>
                         </div>
                       );

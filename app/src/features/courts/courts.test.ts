@@ -40,10 +40,10 @@ describe('courtService', () => {
 
     // Create 4 players
     const players = [
-      { id: crypto.randomUUID(), name: 'Alex', skillLevel: 'Intermediate' as const, gamesPlayed: 0, createdAt: Date.now() },
-      { id: crypto.randomUUID(), name: 'Dave', skillLevel: 'Beginner' as const, gamesPlayed: 0, createdAt: Date.now() },
-      { id: crypto.randomUUID(), name: 'Sarah', skillLevel: 'Advanced' as const, gamesPlayed: 0, createdAt: Date.now() },
-      { id: crypto.randomUUID(), name: 'Lisa', skillLevel: 'Intermediate' as const, gamesPlayed: 0, createdAt: Date.now() },
+      { id: crypto.randomUUID(), name: 'Alex', skillLevel: 'intermediate' as const, gender: 'any' as const, gamesPlayed: 0, wins: 0, losses: 0, createdAt: Date.now() },
+      { id: crypto.randomUUID(), name: 'Dave', skillLevel: 'beginner' as const, gender: 'any' as const, gamesPlayed: 0, wins: 0, losses: 0, createdAt: Date.now() },
+      { id: crypto.randomUUID(), name: 'Sarah', skillLevel: 'advanced' as const, gender: 'any' as const, gamesPlayed: 0, wins: 0, losses: 0, createdAt: Date.now() },
+      { id: crypto.randomUUID(), name: 'Lisa', skillLevel: 'intermediate' as const, gender: 'any' as const, gamesPlayed: 0, wins: 0, losses: 0, createdAt: Date.now() },
     ];
     await db.players.bulkAdd(players);
 
@@ -62,11 +62,14 @@ describe('courtService', () => {
       id: matchId,
       sessionId,
       courtId,
+      gameMode: 'open-play',
       playerIds: players.map((p) => p.id),
       team1PlayerIds: [players[0].id, players[1].id],
       team2PlayerIds: [players[2].id, players[3].id],
       consecutiveWins: 0,
       selectionReasons: ['Waited longest'],
+      mixedDoubles: false,
+      status: 'in_play',
       startedAt: matchStartTime,
     });
 

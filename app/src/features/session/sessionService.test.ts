@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { db } from '../../db/db';
-import { startSession, getActiveSession, endSession, getCourtsForSession } from './sessionService';
+import {
+  startSession,
+  getCurrentSession,
+  transitionToLive,
+  endSession,
+  getCourtsForSession,
+} from './sessionService';
 
 describe('sessionService', () => {
   beforeEach(async () => {
@@ -12,9 +18,9 @@ describe('sessionService', () => {
   it('starts a new session with default parameters and initializes courts', async () => {
     const session = await startSession({});
     expect(session.id).toBeDefined();
-    expect(session.status).toBe('active');
+    expect(session.status).toBe('lobby');
     expect(session.courtCount).toBe(4);
-    expect(session.rotationMode).toBe('4-In / 4-Out');
+    expect(session.gameMode).toBe('open-play');
     expect(session.pin).toBe('1234');
     expect(session.audioEnabled).toBe(true);
 
@@ -24,17 +30,17 @@ describe('sessionService', () => {
     expect(courts.every((c) => c.status === 'open')).toBe(true);
   });
 
-  it('respects custom court count, custom PIN, and custom rotation mode', async () => {
+  it('respects custom court count, custom PIN, and custom game mode', async () => {
     const session = await startSession({
       courtCount: 6,
       pin: '9876',
-      rotationMode: 'Winners Stay & Split',
+      gameMode: 'winners-stay-split',
       audioEnabled: false,
     });
 
     expect(session.courtCount).toBe(6);
     expect(session.pin).toBe('9876');
-    expect(session.rotationMode).toBe('Winners Stay & Split');
+    expect(session.gameMode).toBe('winners-stay-split');
     expect(session.audioEnabled).toBe(false);
 
     const courts = await db.courts.where('sessionId').equals(session.id).toArray();
@@ -42,16 +48,33 @@ describe('sessionService', () => {
   });
 
   it('clamps or validates court counts to the 1-12 range', async () => {
-    await expect(startSession({ courtCount: 0 })).rejects.toThrow('Court count must be between 1 and 12');
-    await expect(startSession({ courtCount: 15 })).rejects.toThrow('Court count must be between 1 and 12');
+    await expect(startSession({ courtCount: 0 })).rejects.toThrow(
+      'Court count must be between 1 and 12'
+    );
+    await expect(startSession({ courtCount: 15 })).rejects.toThrow(
+      'Court count must be between 1 and 12'
+    );
+  });
+
+  it('transitions a lobby session to live', async () => {
+    const session = await startSession({});
+    expect(session.status).toBe('lobby');
+
+    await transitionToLive(session.id);
+    const live = await db.sessions.get(session.id);
+    expect(live?.status).toBe('live');
+
+    const current = await getCurrentSession();
+    expect(current?.id).toBe(session.id);
   });
 
   it('can end an active session', async () => {
     const session = await startSession({});
+    await transitionToLive(session.id);
     await endSession(session.id);
 
-    const active = await getActiveSession();
-    expect(active).toBeUndefined();
+    const current = await getCurrentSession();
+    expect(current).toBeUndefined();
 
     const stored = await db.sessions.get(session.id);
     expect(stored?.status).toBe('ended');

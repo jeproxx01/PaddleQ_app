@@ -7,6 +7,7 @@ import {
   REASON_WAITED_LONGEST,
   REASON_SKILL_MIX,
   REASON_NEW_PARTNERS,
+  REASON_NO_REPEAT_OPPONENTS,
 } from './dispatchEngine';
 
 interface WhyTheseFourModalProps {
@@ -32,13 +33,19 @@ function reasonMeta(reason: string): ReasonMeta {
       return {
         icon: <Scale className="w-4 h-4 text-cyan" />,
         label: 'Skill mix',
-        description: 'Teams are balanced across Beginner, Intermediate, and Advanced tiers.',
+        description: 'Teams are balanced across the five skill tiers (Beginner to Advanced).',
       };
     case REASON_NEW_PARTNERS:
       return {
         icon: <Sparkles className="w-4 h-4 text-tangerine" />,
         label: 'New partners',
-        description: 'No recent repeats — these players did not share a court in the last 2 matches.',
+        description: 'No recent repeats — these players did not partner together in the last 2 matches.',
+      };
+    case REASON_NO_REPEAT_OPPONENTS:
+      return {
+        icon: <Users className="w-4 h-4 text-volt" />,
+        label: 'No repeat opponents',
+        description: 'No recent repeats — these players did not face each other in the last 2 matches.',
       };
     default:
       return {

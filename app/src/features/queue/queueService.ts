@@ -1,10 +1,14 @@
-import { db, Player, Stack, SkillLevel } from '../../db/db';
+import { db, Player, Stack, SkillLevel, Gender } from '../../db/db';
 
 export interface StackWithPlayers extends Stack {
   players: Player[];
 }
 
-export async function getOrCreatePlayer(name: string, skillLevel: SkillLevel): Promise<Player> {
+export async function getOrCreatePlayer(
+  name: string,
+  skillLevel: SkillLevel,
+  gender: Gender = 'any'
+): Promise<Player> {
   const trimmedName = name.trim();
   const existing = await db.players
     .filter((p) => p.name.toLowerCase() === trimmedName.toLowerCase())
@@ -18,7 +22,10 @@ export async function getOrCreatePlayer(name: string, skillLevel: SkillLevel): P
     id: crypto.randomUUID(),
     name: trimmedName,
     skillLevel,
+    gender,
     gamesPlayed: 0,
+    wins: 0,
+    losses: 0,
     createdAt: Date.now(),
   };
 

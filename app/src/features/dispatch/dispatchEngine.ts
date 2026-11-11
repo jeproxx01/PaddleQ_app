@@ -5,29 +5,40 @@ import type { Match, Player, SkillLevel, Stack } from '../../db/db';
  * QMaster Composite Dispatch Engine.
  *
  * Assigns the next eligible Stack to an Open court using a composite ranking:
- *   1. Waited Longest (strict FIFO backbone — players outside the sliding window
- *      of the oldest 6-8 waiting players can never jump ahead),
- *   2. Skill Mix balance (minimizing the tier gap between opposing teams),
- *   3. New Partners (penalizing players who shared a court in the last 2 matches).
+ *   1. Waited Longest (strict FIFO backbone — players outside the first-14
+ *      waiting window can never jump ahead),
+ *   2. Skill Mix balance (minimizing the tier gap between opposing teams across
+ *      the five skill tiers),
+ *   3. New Partners (penalizing players who were partners in the last 2 matches),
+ *   4. No Repeat Opponents (penalizing players who faced each other in the last
+ *      2 matches).
  *
  * Team Lock pairs are treated as atomic units: a locked pair is either dispatched
  * together on the same team or not dispatched at all.
  */
 
 const SKILL_WEIGHT: Record<SkillLevel, number> = {
-  Beginner: 0,
-  Intermediate: 1,
-  Advanced: 2,
+  beginner: 0,
+  'low-intermediate': 1,
+  intermediate: 2,
+  'high-intermediate': 3,
+  advanced: 4,
 };
 
 const MIN_PLAYERS_PER_COURT = 4;
-const WINDOW_SIZE = 8;
+const WINDOW_SIZE = 14;
 const RECENT_MATCH_COUNT = 2;
 
 // Canonical Selection Criteria strings (shown on the tappable "Why these 4?" badge).
 export const REASON_WAITED_LONGEST = 'Waited longest';
 export const REASON_SKILL_MIX = 'Skill mix balanced';
 export const REASON_NEW_PARTNERS = 'New partners';
+export const REASON_NO_REPEAT_OPPONENTS = 'No repeat opponents';
+
+export interface RecentMatchShape {
+  team1PlayerIds: string[];
+  team2PlayerIds: string[];
+}
 
 export interface FoursomeEvaluation {
   team1: Player[];
@@ -40,7 +51,8 @@ interface ScoredFoursome {
   team1: Player[];
   team2: Player[];
   skillImbalance: number;
-  noveltyPenalty: number;
+  partnerNoveltyPenalty: number;
+  opponentNoveltyPenalty: number;
   reasons: string[];
 }
 
@@ -75,25 +87,63 @@ function pairKey(a: string, b: string): string {
   return a < b ? `${a}|${b}` : `${b}|${a}`;
 }
 
-function buildRecentSharedPairs(recentMatchPlayerIds: string[][]): Set<string> {
+function buildRecentPartnerPairs(recent: RecentMatchShape[]): Set<string> {
   const shared = new Set<string>();
-  for (const playerIds of recentMatchPlayerIds) {
-    for (let i = 0; i < playerIds.length; i++) {
-      for (let j = i + 1; j < playerIds.length; j++) {
-        shared.add(pairKey(playerIds[i], playerIds[j]));
+  for (const m of recent) {
+    for (let i = 0; i < m.team1PlayerIds.length; i++) {
+      for (let j = i + 1; j < m.team1PlayerIds.length; j++) {
+        shared.add(pairKey(m.team1PlayerIds[i], m.team1PlayerIds[j]));
+      }
+    }
+    for (let i = 0; i < m.team2PlayerIds.length; i++) {
+      for (let j = i + 1; j < m.team2PlayerIds.length; j++) {
+        shared.add(pairKey(m.team2PlayerIds[i], m.team2PlayerIds[j]));
       }
     }
   }
   return shared;
 }
 
-function countRecentSharedPairs(players: Player[], recentSharedPairs: Set<string>): number {
-  let count = 0;
-  for (let i = 0; i < players.length; i++) {
-    for (let j = i + 1; j < players.length; j++) {
-      if (recentSharedPairs.has(pairKey(players[i].id, players[j].id))) {
-        count++;
+function buildRecentOpponentPairs(recent: RecentMatchShape[]): Set<string> {
+  const shared = new Set<string>();
+  for (const m of recent) {
+    for (const a of m.team1PlayerIds) {
+      for (const b of m.team2PlayerIds) {
+        shared.add(pairKey(a, b));
       }
+    }
+  }
+  return shared;
+}
+
+function countPartnerRepeats(
+  team1: Player[],
+  team2: Player[],
+  recentPartners: Set<string>
+): number {
+  let count = 0;
+  for (let i = 0; i < team1.length; i++) {
+    for (let j = i + 1; j < team1.length; j++) {
+      if (recentPartners.has(pairKey(team1[i].id, team1[j].id))) count++;
+    }
+  }
+  for (let i = 0; i < team2.length; i++) {
+    for (let j = i + 1; j < team2.length; j++) {
+      if (recentPartners.has(pairKey(team2[i].id, team2[j].id))) count++;
+    }
+  }
+  return count;
+}
+
+function countOpponentRepeats(
+  team1: Player[],
+  team2: Player[],
+  recentOpponents: Set<string>
+): number {
+  let count = 0;
+  for (const a of team1) {
+    for (const b of team2) {
+      if (recentOpponents.has(pairKey(a.id, b.id))) count++;
     }
   }
   return count;
@@ -134,7 +184,8 @@ function splitsLockedPair(players: Player[], teamLockPairs: [string, string][]):
  */
 function scoreFoursome(
   players: Player[],
-  recentSharedPairs: Set<string>,
+  recentPartnerPairs: Set<string>,
+  recentOpponentPairs: Set<string>,
   teamLockPairs: [string, string][]
 ): ScoredFoursome {
   const pairings: [number[], number[]][] = [
@@ -168,29 +219,40 @@ function scoreFoursome(
     };
   }
 
-  const noveltyPenalty = countRecentSharedPairs(players, recentSharedPairs);
+  const partnerNoveltyPenalty = countPartnerRepeats(
+    best.team1,
+    best.team2,
+    recentPartnerPairs
+  );
+  const opponentNoveltyPenalty = countOpponentRepeats(
+    best.team1,
+    best.team2,
+    recentOpponentPairs
+  );
 
   const reasons: string[] = [REASON_SKILL_MIX];
-  if (noveltyPenalty === 0) reasons.push(REASON_NEW_PARTNERS);
+  if (partnerNoveltyPenalty === 0) reasons.push(REASON_NEW_PARTNERS);
+  if (opponentNoveltyPenalty === 0) reasons.push(REASON_NO_REPEAT_OPPONENTS);
 
   return {
     players,
     team1: best.team1,
     team2: best.team2,
     skillImbalance: best.imbalance,
-    noveltyPenalty,
+    partnerNoveltyPenalty,
+    opponentNoveltyPenalty,
     reasons,
   };
 }
 
 /**
  * Pure evaluation of a candidate foursome: return the balanced team split and the
- * Selection Criteria strings that explain it. `recentMatchPlayerIds` is the list of
- * player id arrays from the last 2 matches; `teamLockPairs` is a list of locked pairs.
+ * Selection Criteria strings that explain it. `recentMatches` is the list of recent
+ * matches (team assignments); `teamLockPairs` is a list of locked pairs.
  */
 export function evaluateCandidateFoursomes(
   players: Player[],
-  recentMatchPlayerIds: string[][] = [],
+  recentMatches: RecentMatchShape[] = [],
   teamLockPairs: [string, string][] = []
 ): FoursomeEvaluation {
   if (players.length !== MIN_PLAYERS_PER_COURT) {
@@ -202,8 +264,9 @@ export function evaluateCandidateFoursomes(
     };
   }
 
-  const recentSharedPairs = buildRecentSharedPairs(recentMatchPlayerIds);
-  const scored = scoreFoursome(players, recentSharedPairs, teamLockPairs);
+  const recentPartnerPairs = buildRecentPartnerPairs(recentMatches);
+  const recentOpponentPairs = buildRecentOpponentPairs(recentMatches);
+  const scored = scoreFoursome(players, recentPartnerPairs, recentOpponentPairs, teamLockPairs);
   return { team1: scored.team1, team2: scored.team2, reasons: scored.reasons };
 }
 
@@ -213,7 +276,10 @@ function isBetterCandidate(
 ): boolean {
   if (a.fifoScore !== b.fifoScore) return a.fifoScore < b.fifoScore;
   if (a.skillImbalance !== b.skillImbalance) return a.skillImbalance < b.skillImbalance;
-  return a.noveltyPenalty < b.noveltyPenalty;
+  if (a.partnerNoveltyPenalty !== b.partnerNoveltyPenalty) {
+    return a.partnerNoveltyPenalty < b.partnerNoveltyPenalty;
+  }
+  return a.opponentNoveltyPenalty < b.opponentNoveltyPenalty;
 }
 
 async function markStacksDispatched(sessionId: string, dispatchedPlayerIds: string[]): Promise<void> {
@@ -252,6 +318,9 @@ async function markStacksDispatched(sessionId: string, dispatchedPlayerIds: stri
  * court. Returns the created Match (or an empty array when no dispatch is possible).
  */
 export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
+  const session = await db.sessions.get(sessionId);
+  if (!session) return [];
+
   const openCourts = (await db.courts.where('sessionId').equals(sessionId).toArray())
     .filter((c) => c.status === 'open')
     .sort((a, b) => a.courtNumber - b.courtNumber);
@@ -309,7 +378,7 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
   const totalWaiting = units.reduce((sum, u) => sum + u.players.length, 0);
   if (totalWaiting < MIN_PLAYERS_PER_COURT) return [];
 
-  // Sliding window: the oldest up-to-8 waiting players, never splitting atomic units.
+  // Sliding window: the first up-to-14 waiting players, never splitting atomic units.
   const windowPlayers: Player[] = [];
   for (const unit of units) {
     if (windowPlayers.length + unit.players.length > WINDOW_SIZE) break;
@@ -321,8 +390,10 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
 
   const recentMatches = (await db.matches.where('sessionId').equals(sessionId).toArray())
     .sort((a, b) => b.startedAt - a.startedAt)
-    .slice(0, RECENT_MATCH_COUNT);
-  const recentSharedPairs = buildRecentSharedPairs(recentMatches.map((m) => m.playerIds));
+    .slice(0, RECENT_MATCH_COUNT)
+    .map((m) => ({ team1PlayerIds: m.team1PlayerIds, team2PlayerIds: m.team2PlayerIds }));
+  const recentPartnerPairs = buildRecentPartnerPairs(recentMatches);
+  const recentOpponentPairs = buildRecentOpponentPairs(recentMatches);
 
   let best: (ScoredFoursome & { fifoScore: number }) | null = null;
 
@@ -330,7 +401,7 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
     const comboPlayers = idxCombo.map((i) => windowPlayers[i]);
     if (splitsLockedPair(comboPlayers, teamLockPairs)) continue;
 
-    const scored = scoreFoursome(comboPlayers, recentSharedPairs, teamLockPairs);
+    const scored = scoreFoursome(comboPlayers, recentPartnerPairs, recentOpponentPairs, teamLockPairs);
     const fifoScore = idxCombo.reduce((sum, i) => sum + i, 0);
     const candidate = { ...scored, fifoScore };
 
@@ -342,15 +413,22 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
   const targetCourt = openCourts[0];
   const now = Date.now();
 
+  const maleCount = best.players.filter((p) => p.gender === 'male').length;
+  const femaleCount = best.players.filter((p) => p.gender === 'female').length;
+  const mixedDoubles = maleCount === 2 && femaleCount === 2;
+
   const match: Match = {
     id: crypto.randomUUID(),
     sessionId,
     courtId: targetCourt.id,
+    gameMode: session.gameMode,
     playerIds: best.players.map((p) => p.id),
     team1PlayerIds: best.team1.map((p) => p.id),
     team2PlayerIds: best.team2.map((p) => p.id),
     consecutiveWins: 0,
     selectionReasons: [REASON_WAITED_LONGEST, ...best.reasons],
+    mixedDoubles,
+    status: 'in_play',
     startedAt: now,
   };
 

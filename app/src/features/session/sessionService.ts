@@ -1,14 +1,21 @@
-import { db, Session, RotationMode, Court } from '../../db/db';
+import { db, type Session, type Court, type GameMode, type RecordScoresMode, type SkillMixing } from '../../db/db';
 
 export interface StartSessionOptions {
   courtCount?: number;
-  rotationMode?: RotationMode;
+  gameMode?: GameMode;
+  name?: string;
+  recordScores?: RecordScoresMode;
+  targetScore?: number;
+  timeLimitMinutes?: number;
   pin?: string;
   audioEnabled?: boolean;
 }
 
-export async function getActiveSession(): Promise<Session | undefined> {
-  return await db.sessions.where('status').equals('active').first();
+export async function getCurrentSession(): Promise<Session | undefined> {
+  const sessions = await db.sessions.where('status').anyOf(['lobby', 'live']).toArray();
+  if (sessions.length === 0) return undefined;
+  sessions.sort((a, b) => b.startedAt - a.startedAt);
+  return sessions[0];
 }
 
 export async function getCourtsForSession(sessionId: string): Promise<Court[]> {
@@ -23,11 +30,21 @@ export async function startSession(options: StartSessionOptions = {}): Promise<S
   }
 
   const pin = options.pin && options.pin.trim().length === 4 ? options.pin.trim() : '1234';
-  const rotationMode: RotationMode = options.rotationMode ?? '4-In / 4-Out';
+  const gameMode: GameMode = options.gameMode ?? 'open-play';
+  const name = options.name?.trim() || 'Open Play Session';
+  const recordScores: RecordScoresMode = options.recordScores ?? 'winners-and-scores';
+  const targetScore = options.targetScore ?? 11;
   const audioEnabled = options.audioEnabled ?? true;
+  const autoFill = false;
+  const skillMixing: SkillMixing = 'auto-balance';
+  const timeLimitMinutes =
+    gameMode === 'time-based' ? (options.timeLimitMinutes ?? 15) : undefined;
 
   // Finalize any previously active session
-  const activeSessions = await db.sessions.where('status').equals('active').toArray();
+  const activeSessions = await db.sessions
+    .where('status')
+    .anyOf(['lobby', 'live'])
+    .toArray();
   for (const prev of activeSessions) {
     await db.sessions.update(prev.id, { status: 'ended', endedAt: Date.now() });
   }
@@ -37,11 +54,17 @@ export async function startSession(options: StartSessionOptions = {}): Promise<S
 
   const newSession: Session = {
     id: sessionId,
-    status: 'active',
+    name,
+    status: 'lobby',
     courtCount,
-    rotationMode,
+    gameMode,
+    recordScores,
+    targetScore,
+    timeLimitMinutes,
     pin,
     audioEnabled,
+    autoFill,
+    skillMixing,
     startedAt: now,
   };
 
@@ -61,6 +84,10 @@ export async function startSession(options: StartSessionOptions = {}): Promise<S
   await db.courts.bulkAdd(courtsToCreate);
 
   return newSession;
+}
+
+export async function transitionToLive(sessionId: string): Promise<void> {
+  await db.sessions.update(sessionId, { status: 'live' });
 }
 
 export async function endSession(sessionId: string): Promise<void> {
