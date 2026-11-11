@@ -1,4 +1,5 @@
 import { db, Player, Stack, SkillLevel, Gender } from '../../db/db';
+import { ensureReady } from '../lobby/checkInService';
 
 export interface StackWithPlayers extends Stack {
   players: Player[];
@@ -45,6 +46,8 @@ export async function searchPlayers(prefix: string): Promise<Player[]> {
 }
 
 export async function joinSolo(sessionId: string, playerId: string): Promise<Stack> {
+  await ensureReady(sessionId, [playerId]);
+
   const waitingStacks = (
     await db.stacks
       .where('sessionId')
@@ -83,6 +86,8 @@ export async function joinPair(
   player1Id: string,
   player2Id: string
 ): Promise<Stack> {
+  await ensureReady(sessionId, [player1Id, player2Id]);
+
   const teamLockId = crypto.randomUUID();
 
   const waitingWithRoom = (
@@ -128,6 +133,8 @@ export async function joinFoursome(
   sessionId: string,
   playerIds: [string, string, string, string]
 ): Promise<Stack> {
+  await ensureReady(sessionId, [...playerIds]);
+
   const newStack: Stack = {
     id: crypto.randomUUID(),
     sessionId,

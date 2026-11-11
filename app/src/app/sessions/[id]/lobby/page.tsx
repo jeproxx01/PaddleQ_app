@@ -1,35 +1,98 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Play, Users } from 'lucide-react';
-import { db, type Session } from '@/db/db';
+import { Play, Plus, UserCheck } from 'lucide-react';
+import { db, type CheckInState, type Session, type SkillLevel } from '@/db/db';
 import { transitionToLive } from '@/features/session/sessionService';
-import { getWaitingStacksWithPlayers, type StackWithPlayers } from '@/features/queue/queueService';
 import { useSessionId } from '@/features/layout/SessionContext';
-import { GAME_MODE_LABELS } from '@/shared/display';
+import { GAME_MODE_LABELS, SKILL_LEVEL_LABELS } from '@/shared/display';
+import { getOrCreatePlayer } from '@/features/queue/queueService';
+import {
+  getOrCreateSessionPlayer,
+  setCheckInState,
+  getSessionPlayersWithDetails,
+  getRosterCounts,
+  type SessionPlayerWithDetails,
+} from '@/features/lobby/checkInService';
+
+const TABS: { key: 'all' | CheckInState; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'not_here', label: 'Not here' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'resting', label: 'Resting' },
+];
+
+const NEXT_STATE: Record<CheckInState, CheckInState> = {
+  not_here: 'ready',
+  ready: 'resting',
+  resting: 'not_here',
+};
+
+const STATE_LABEL: Record<CheckInState, string> = {
+  not_here: 'Not here',
+  ready: 'Ready',
+  resting: 'Resting',
+};
+
+function stateBadgeClass(state: CheckInState): string {
+  switch (state) {
+    case 'ready':
+      return 'bg-volt/15 text-volt border-volt/40';
+    case 'resting':
+      return 'bg-tangerine/15 text-tangerine border-tangerine/40';
+    default:
+      return 'bg-obsidian-dark text-text-secondary border-card-border';
+  }
+}
 
 export default function LobbyPage() {
   const sessionId = useSessionId();
   const router = useRouter();
 
   const [session, setSession] = useState<Session | null>(null);
-  const [stacks, setStacks] = useState<StackWithPlayers[]>([]);
+  const [roster, setRoster] = useState<SessionPlayerWithDetails[]>([]);
+  const [counts, setCounts] = useState<Record<CheckInState, number>>({
+    not_here: 0,
+    ready: 0,
+    resting: 0,
+  });
+  const [tab, setTab] = useState<'all' | CheckInState>('all');
+  const [newName, setNewName] = useState('');
+  const [newSkill, setNewSkill] = useState<SkillLevel>('intermediate');
+
+  const load = useCallback(async () => {
+    const s = await db.sessions.get(sessionId);
+    setSession(s ?? null);
+    setRoster(await getSessionPlayersWithDetails(sessionId));
+    setCounts(await getRosterCounts(sessionId));
+  }, [sessionId]);
 
   useEffect(() => {
-    if (!sessionId) return;
-    db.sessions.get(sessionId).then((s) => setSession(s ?? null));
-    getWaitingStacksWithPlayers(sessionId).then(setStacks);
-  }, [sessionId]);
+    load();
+  }, [load]);
 
   if (!session) {
     return <div className="p-8 text-text-secondary">Loading…</div>;
   }
 
-  const totalPlayers = stacks.reduce((n, s) => n + s.playerIds.length, 0);
-  const capacity = session.courtCount * 4;
-  const progress = Math.min(100, (totalPlayers / Math.max(1, capacity)) * 100);
+  const filtered =
+    tab === 'all' ? roster : roster.filter((r) => r.checkInState === tab);
+
+  const handleAddPlayer = async () => {
+    const name = newName.trim();
+    if (!name) return;
+    const player = await getOrCreatePlayer(name, newSkill);
+    await getOrCreateSessionPlayer(sessionId, player.id, 'not_here');
+    setNewName('');
+    await load();
+  };
+
+  const handleCycleState = async (playerId: string, current: CheckInState) => {
+    await setCheckInState(sessionId, playerId, NEXT_STATE[current]);
+    await load();
+  };
 
   const handleStart = async () => {
     await transitionToLive(sessionId);
@@ -45,58 +108,125 @@ export default function LobbyPage() {
             {session.courtCount} courts · {GAME_MODE_LABELS[session.gameMode]} · PIN {session.pin}
           </p>
         </div>
-        <span className="px-3 py-1 rounded-full bg-tangerine/15 text-tangerine border border-tangerine/30 text-xs font-mono">
-          Not started
-        </span>
-      </div>
-
-      <div className="mt-8 p-6 rounded-2xl bg-card-surface border border-card-border">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="font-bold">Players ready</h2>
-            <p className="text-sm text-text-secondary mt-1">
-              {totalPlayers} of {capacity} spots filled
-            </p>
-          </div>
+        <div className="flex items-center gap-3">
+          <span className="px-3 py-1 rounded-full bg-tangerine/15 text-tangerine border border-tangerine/30 text-xs font-mono">
+            Not started
+          </span>
           <button
             type="button"
             onClick={handleStart}
-            className="h-14 px-6 rounded-xl bg-volt text-obsidian-dark font-extrabold flex items-center gap-2 hover:bg-volt-hover transition-all"
+            className="h-12 px-5 rounded-xl bg-volt text-obsidian-dark font-extrabold flex items-center gap-2 hover:bg-volt-hover transition-all"
           >
             <Play className="w-5 h-5 fill-current" />
             Start session →
           </button>
         </div>
+      </div>
 
-        <div className="mt-4 h-2 rounded-full bg-obsidian-dark overflow-hidden">
-          <div className="h-full bg-volt transition-all" style={{ width: `${progress}%` }} />
+      {/* Add player */}
+      <div className="mt-6 p-4 rounded-2xl bg-card-surface border border-card-border">
+        <div className="flex items-center gap-2 mb-3">
+          <Plus className="w-4 h-4 text-volt" />
+          <span className="text-sm font-semibold">Add player</span>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Player name"
+            className="flex-1 h-12 rounded-xl bg-obsidian-dark border border-card-border px-4 text-white focus:outline-none focus:border-volt"
+          />
+          <select
+            value={newSkill}
+            onChange={(e) => setNewSkill(e.target.value as SkillLevel)}
+            className="h-12 rounded-xl bg-obsidian-dark border border-card-border px-3 text-white focus:outline-none focus:border-volt"
+          >
+            {(Object.keys(SKILL_LEVEL_LABELS) as SkillLevel[]).map((sk) => (
+              <option key={sk} value={sk}>
+                {SKILL_LEVEL_LABELS[sk]}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleAddPlayer}
+            className="h-12 px-4 rounded-xl bg-volt text-obsidian-dark font-bold hover:bg-volt-hover"
+          >
+            Add
+          </button>
+        </div>
+      </div>
+
+      {/* Roster */}
+      <div className="mt-6 p-4 rounded-2xl bg-card-surface border border-card-border">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold flex items-center gap-2">
+            <UserCheck className="w-5 h-5 text-volt" />
+            Players ({counts.ready}/{roster.length} ready)
+          </h2>
         </div>
 
-        <div className="mt-6">
-          {stacks.length === 0 ? (
-            <div className="p-8 rounded-xl border border-dashed border-card-border text-center">
-              <Users className="w-10 h-10 text-text-secondary/50 mx-auto mb-2" />
-              <p className="text-sm text-text-secondary">No players yet.</p>
-              <Link
-                href={`/sessions/${sessionId}/queue`}
-                className="inline-block mt-3 px-4 py-2 rounded-lg bg-obsidian-dark border border-card-border text-sm text-volt hover:border-volt/50"
-              >
-                Add players →
-              </Link>
-            </div>
+        {/* Tabs */}
+        <div className="flex items-center gap-2 mt-3">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`h-10 px-3 rounded-lg border text-xs font-semibold ${
+                tab === t.key
+                  ? 'border-volt bg-volt/10 text-volt'
+                  : 'border-card-border bg-obsidian-dark text-text-secondary'
+              }`}
+            >
+              {t.label}
+              <span className="ml-1 opacity-60">
+                {t.key === 'all' ? roster.length : counts[t.key as CheckInState]}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* Player list */}
+        <ul className="mt-4 space-y-1.5">
+          {filtered.length === 0 ? (
+            <li className="p-6 text-center text-sm text-text-secondary">
+              No players here yet. Add players above or join from the Queue.
+            </li>
           ) : (
-            <ul className="space-y-1.5">
-              {stacks.flatMap((s) => s.players).map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between p-2.5 rounded-lg bg-obsidian-dark/60 border border-card-border/50"
+            filtered.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between p-2.5 rounded-lg bg-obsidian-dark/60 border border-card-border/50"
+              >
+                <div>
+                  <div className="text-sm font-semibold">{r.player.name}</div>
+                  <div className="text-xs text-text-secondary">
+                    {SKILL_LEVEL_LABELS[r.player.skillLevel]}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleCycleState(r.playerId, r.checkInState)}
+                  title="Tap to change check-in state"
+                  className={`px-3 py-1.5 rounded-full border text-xs font-semibold ${stateBadgeClass(r.checkInState)}`}
                 >
-                  <span className="font-semibold text-sm">{p.name}</span>
-                </li>
-              ))}
-            </ul>
+                  {STATE_LABEL[r.checkInState]}
+                </button>
+              </li>
+            ))
           )}
-        </div>
+        </ul>
+      </div>
+
+      <div className="mt-4 text-center">
+        <Link
+          href={`/sessions/${sessionId}/queue`}
+          className="text-sm text-volt hover:underline"
+        >
+          Manage the queue →
+        </Link>
       </div>
     </div>
   );
