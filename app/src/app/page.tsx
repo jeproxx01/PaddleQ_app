@@ -5,23 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Play, Sparkles, Zap, Radio, Trophy } from 'lucide-react';
 import { startSession } from '../features/session/sessionService';
-import { getOrCreatePlayer, joinSolo } from '../features/queue/queueService';
-import type { SkillLevel } from '../db/db';
-
-const DEMO_PLAYERS: [string, SkillLevel][] = [
-  ['Alex', 'advanced'],
-  ['Dana', 'advanced'],
-  ['Sam', 'intermediate'],
-  ['Priya', 'intermediate'],
-  ['Jordan', 'low-intermediate'],
-  ['Casey', 'low-intermediate'],
-  ['Riley', 'beginner'],
-  ['Taylor', 'beginner'],
-  ['Morgan', 'high-intermediate'],
-  ['Quinn', 'intermediate'],
-  ['Avery', 'beginner'],
-  ['Jamie', 'advanced'],
-];
+import { seedDemoPlayers } from '../features/admin/adminService';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -31,10 +15,7 @@ export default function LandingPage() {
     setLoadingDemo(true);
     try {
       const session = await startSession({ name: 'Demo Session', courtCount: 4 });
-      for (const [name, skill] of DEMO_PLAYERS) {
-        const player = await getOrCreatePlayer(name, skill);
-        await joinSolo(session.id, player.id);
-      }
+      await seedDemoPlayers(session.id);
       router.push(`/sessions/${session.id}/lobby`);
     } catch (err) {
       console.error('Failed to start demo:', err);
