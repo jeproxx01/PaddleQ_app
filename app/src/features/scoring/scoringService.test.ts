@@ -18,7 +18,7 @@ function mkPlayer(name: string) {
 }
 
 async function seedInPlayMatch(
-  gameMode: 'open-play' | 'winners-stay-split' | 'challenge-court',
+  gameMode: 'open-play' | 'winner-vs-loser-pools' | 'winner-takes-all-round-robin',
   consecutiveWins = 0
 ) {
   const session = await startSession({ courtCount: 1, gameMode });
@@ -88,32 +88,26 @@ describe('scoringService', () => {
       expect(losers.every((p) => p?.losses === 1)).toBe(true);
     });
 
-    it('keeps the winning pair on court (uncapped) in Winners Stay & Split', async () => {
-      const { session, players, matchId } = await seedInPlayMatch('winners-stay-split');
+    it('routes winning pair to Winners Pool and losing pair to Losers Pool in Winner vs Loser Pools', async () => {
+      const { session, players, matchId } = await seedInPlayMatch('winner-vs-loser-pools');
 
       const result = await recordScore(session.id, matchId, 11, 7, 1);
 
-      expect(result.winnersStay).toBe(true);
-      expect(result.capped).toBe(false);
-      expect(result.stayingPlayerIds).toEqual([players[0].id, players[1].id]);
-      expect(result.rotatingPlayerIds).toEqual([players[2].id, players[3].id]);
-
-      const match = await db.matches.get(matchId);
-      expect(match?.consecutiveWins).toBe(1);
-    });
-
-    it('forces capped winners off after reaching the Max Win Limit', async () => {
-      const { session, players, matchId } = await seedInPlayMatch('winners-stay-split', 1);
-
-      const result = await recordScore(session.id, matchId, 11, 9, 1);
-
-      expect(result.capped).toBe(true);
       expect(result.winnersStay).toBe(false);
       expect(result.rotatingPlayerIds).toHaveLength(4);
-      expect(result.stayingPlayerIds).toHaveLength(0);
 
-      const match = await db.matches.get(matchId);
-      expect(match?.consecutiveWins).toBe(2);
+      // Verify stacks added into queue pools
+      const queuedStacks = await db.stacks.where('sessionId').equals(session.id).toArray();
+      const winnerStack = queuedStacks.find((s) => s.pool === 'winners');
+      const loserStack = queuedStacks.find((s) => s.pool === 'losers');
+
+      expect(winnerStack).toBeDefined();
+      expect(winnerStack?.playerIds).toEqual([players[0].id, players[1].id]);
+      expect(winnerStack?.teamLockPlayerIds).toEqual([players[0].id, players[1].id]);
+
+      expect(loserStack).toBeDefined();
+      expect(loserStack?.playerIds).toEqual([players[2].id, players[3].id]);
+      expect(loserStack?.teamLockPlayerIds).toEqual([players[2].id, players[3].id]);
     });
 
     it('rejects scoring a match that is not in play', async () => {
@@ -126,46 +120,42 @@ describe('scoringService', () => {
     });
   });
 
-  describe('Challenge Court (king-of-the-court)', () => {
-    it('lets the winning holder keep the court with a streak of 1', async () => {
-      const { session, players, matchId } = await seedInPlayMatch('challenge-court', 0);
+  describe('Winner Takes All (round-robin)', () => {
+    it('updates tournament fixture and team standings upon recording match score', async () => {
+      const { session, players, courtId, matchId } = await seedInPlayMatch('winner-takes-all-round-robin');
+
+      await db.tournamentTeams.bulkAdd([
+        { id: 't1', sessionId: session.id, name: 'Team 1', playerIds: [players[0].id, players[1].id] as [string, string], totalPoints: 0, pointsConceded: 0, wins: 0, losses: 0 },
+        { id: 't2', sessionId: session.id, name: 'Team 2', playerIds: [players[2].id, players[3].id] as [string, string], totalPoints: 0, pointsConceded: 0, wins: 0, losses: 0 },
+      ]);
+
+      await db.tournamentFixtures.add({
+        id: 'fix-test',
+        sessionId: session.id,
+        round: 1,
+        team1Id: 't1',
+        team2Id: 't2',
+        courtId,
+        matchId,
+        status: 'in_play',
+      });
 
       const result = await recordScore(session.id, matchId, 11, 6, 1);
-
-      expect(result.winnersStay).toBe(true);
-      expect(result.capped).toBe(false);
-      expect(result.stayingPlayerIds).toEqual([players[0].id, players[1].id]);
-
-      const match = await db.matches.get(matchId);
-      expect(match?.consecutiveWins).toBe(1);
-    });
-
-    it('forces the holder off after two consecutive defenses (streak cap)', async () => {
-      const { session, players, matchId } = await seedInPlayMatch('challenge-court', 1);
-
-      const result = await recordScore(session.id, matchId, 11, 9, 1);
-
-      expect(result.capped).toBe(true);
       expect(result.winnersStay).toBe(false);
-      expect(result.rotatingPlayerIds).toHaveLength(4);
 
-      const match = await db.matches.get(matchId);
-      expect(match?.consecutiveWins).toBe(2);
-    });
+      const fixture = await db.tournamentFixtures.get('fix-test');
+      expect(fixture?.status).toBe('completed');
+      expect(fixture?.score1).toBe(11);
+      expect(fixture?.score2).toBe(6);
+      expect(fixture?.winnerTeamId).toBe('t1');
 
-    it('crowns the challenger as the new holder with a fresh streak', async () => {
-      const { session, players, matchId } = await seedInPlayMatch('challenge-court', 1);
+      const team1 = await db.tournamentTeams.get('t1');
+      expect(team1?.totalPoints).toBe(11);
+      expect(team1?.wins).toBe(1);
 
-      const result = await recordScore(session.id, matchId, 7, 11, 2);
-
-      expect(result.winnersStay).toBe(true);
-      expect(result.capped).toBe(false);
-      // Challengers (team 2) stay; the old holders (team 1) rotate out.
-      expect(result.stayingPlayerIds).toEqual([players[2].id, players[3].id]);
-      expect(result.rotatingPlayerIds).toEqual([players[0].id, players[1].id]);
-
-      const match = await db.matches.get(matchId);
-      expect(match?.consecutiveWins).toBe(1);
+      const team2 = await db.tournamentTeams.get('t2');
+      expect(team2?.totalPoints).toBe(6);
+      expect(team2?.losses).toBe(1);
     });
   });
 

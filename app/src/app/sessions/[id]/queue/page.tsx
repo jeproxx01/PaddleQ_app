@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { db } from '@/db/db';
 import { useSessionBoard } from '@/features/session/useSessionBoard';
@@ -16,10 +16,11 @@ export default function QueuePage() {
   const { session, stacks, calls, loading, refresh } = useSessionBoard(sessionId);
   const [callIndex, setCallIndex] = useState(0);
   const [manualCall, setManualCall] = useState<CourtCall | null>(null);
-
-  useEffect(() => {
+  const [prevCalls, setPrevCalls] = useState(calls);
+  if (prevCalls !== calls) {
+    setPrevCalls(calls);
     setCallIndex(0);
-  }, [calls]);
+  }
 
   if (loading) {
     return (

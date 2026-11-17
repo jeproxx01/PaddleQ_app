@@ -147,6 +147,16 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
                 <div className="flex items-center justify-between pb-3 border-b border-card-border/60">
                   <div className="flex items-center gap-2">
                     {getPositionBadge(idx, stack.players.length)}
+                    {stack.pool === 'winners' && (
+                      <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-volt/15 text-volt border border-volt/30 font-bold">
+                        Winners
+                      </span>
+                    )}
+                    {stack.pool === 'losers' && (
+                      <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/30 font-bold">
+                        Losers
+                      </span>
+                    )}
                     {stack.teamLockId && (
                       <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan/15 text-cyan border border-cyan/30" title="Team Lock Active">
                         <Lock className="w-3 h-3" />

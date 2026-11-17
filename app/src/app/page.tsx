@@ -1,28 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { Play, Sparkles, Zap, Radio, Trophy } from 'lucide-react';
-import { startSession } from '../features/session/sessionService';
-import { seedDemoPlayers } from '../features/admin/adminService';
 
 export default function LandingPage() {
-  const router = useRouter();
-  const [loadingDemo, setLoadingDemo] = useState(false);
-
-  const handleDemo = async () => {
-    setLoadingDemo(true);
-    try {
-      const session = await startSession({ name: 'Demo Session', courtCount: 4 });
-      await seedDemoPlayers(session.id);
-      router.push(`/sessions/${session.id}/lobby`);
-    } catch (err) {
-      console.error('Failed to start demo:', err);
-      setLoadingDemo(false);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-obsidian-dark text-white flex flex-col">
       {/* Top nav */}
@@ -65,14 +47,6 @@ export default function LandingPage() {
               <Play className="w-5 h-5 fill-current" />
               Start a session →
             </Link>
-            <button
-              type="button"
-              onClick={handleDemo}
-              disabled={loadingDemo}
-              className="h-14 px-6 rounded-xl border border-card-border bg-obsidian-dark text-white font-bold text-base hover:border-volt/50 transition-all disabled:opacity-50"
-            >
-              {loadingDemo ? 'Loading demo…' : 'Try demo'}
-            </button>
           </div>
         </div>
 

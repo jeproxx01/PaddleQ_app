@@ -14,7 +14,10 @@ interface CourtCallModalProps {
 export function CourtCallModal({ courtNumber, playerNames, onDismiss }: CourtCallModalProps) {
   const [progress, setProgress] = useState(100);
   const onDismissRef = useRef(onDismiss);
-  onDismissRef.current = onDismiss;
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   useEffect(() => {
     const startedAt = Date.now();

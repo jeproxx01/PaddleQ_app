@@ -31,16 +31,14 @@ export const SKILL_LEVEL_ABBREV: Record<SkillLevel, string> = {
 
 export const GAME_MODES_ORDERED: GameMode[] = [
   'open-play',
-  'winners-stay-split',
-  'challenge-court',
-  'time-based',
+  'winner-vs-loser-pools',
+  'winner-takes-all-round-robin',
 ];
 
 export const GAME_MODE_LABELS: Record<GameMode, string> = {
-  'open-play': 'Open Play',
-  'winners-stay-split': 'Winners Stay & Split',
-  'challenge-court': 'Challenge Court',
-  'time-based': 'Time-Based',
+  'open-play': 'Open Play (4-In / 4-Out)',
+  'winner-vs-loser-pools': 'Winner/Winner vs Loser/Loser',
+  'winner-takes-all-round-robin': 'Winner Takes All (Round Robin)',
 };
 
 export const GENDER_LABELS: Record<Gender, string> = {

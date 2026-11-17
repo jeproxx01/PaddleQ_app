@@ -18,7 +18,6 @@ export function CourtCard({ court, onRecordScore, onWhyTheseFour }: CourtCardPro
 
   useEffect(() => {
     if (!isInPlay || !match?.startedAt) {
-      setElapsedSeconds(0);
       return;
     }
 

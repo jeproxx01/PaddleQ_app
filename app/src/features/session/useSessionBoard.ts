@@ -71,7 +71,10 @@ export function useSessionBoard(sessionId: string) {
   }, [sessionId]);
 
   useEffect(() => {
-    refresh();
+    const id = setTimeout(() => {
+      void refresh();
+    }, 0);
+    return () => clearTimeout(id);
   }, [refresh]);
 
   return { session, courts, stacks, calls, loading, refresh };

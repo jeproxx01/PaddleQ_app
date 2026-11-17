@@ -1,4 +1,5 @@
 import { db, type Session, type Court, type GameMode, type RecordScoresMode, type SkillMixing } from '../../db/db';
+import { initializeTournamentTeams, setupTournamentFixtures } from '../tournament/tournamentService';
 
 export interface StartSessionOptions {
   courtCount?: number;
@@ -37,8 +38,7 @@ export async function startSession(options: StartSessionOptions = {}): Promise<S
   const audioEnabled = options.audioEnabled ?? true;
   const autoFill = false;
   const skillMixing: SkillMixing = 'auto-balance';
-  const timeLimitMinutes =
-    gameMode === 'time-based' ? (options.timeLimitMinutes ?? 15) : undefined;
+  const timeLimitMinutes = options.timeLimitMinutes;
 
   // Finalize any previously active session
   const activeSessions = await db.sessions
@@ -87,6 +87,21 @@ export async function startSession(options: StartSessionOptions = {}): Promise<S
 }
 
 export async function transitionToLive(sessionId: string): Promise<void> {
+  const session = await db.sessions.get(sessionId);
+  if (session?.gameMode === 'winner-takes-all-round-robin') {
+    const existingTeams = await db.tournamentTeams.where('sessionId').equals(sessionId).toArray();
+    if (existingTeams.length === 0) {
+      const readyPlayers = (
+        await db.sessionPlayers.where('sessionId').equals(sessionId).toArray()
+      ).filter((sp) => sp.checkInState === 'ready');
+      const playerIds = readyPlayers.map((sp) => sp.playerId);
+      const players = await db.players.where('id').anyOf(playerIds).toArray();
+      if (players.length >= 2) {
+        const teams = await initializeTournamentTeams(sessionId, players);
+        await setupTournamentFixtures(sessionId, teams);
+      }
+    }
+  }
   await db.sessions.update(sessionId, { status: 'live' });
 }
 

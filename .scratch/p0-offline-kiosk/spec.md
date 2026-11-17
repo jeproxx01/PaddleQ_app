@@ -11,7 +11,7 @@ Pickleball open-play courts at public parks and indoor venues frequently suffer 
 PaddleQ is an offline-first court operating system that runs both as a dedicated touch **Kiosk** (tablet or laptop at the court gate, launched via `chrome --kiosk`) and as an offline **Local Web App** served over the venue's local network (for scorer tablets/phones, TV displays, and player check-in). It provides an automated, visible, and vocal court management system with zero internet requirement:
 
 1. **Multi-Screen Routing Workflow**: Replaces the single-screen modal launcher with a full journey — **Landing Page** (`/`) → **New Session Wizard** (`/sessions/new`, 4 steps) → **Pre-Session Lobby** (`/sessions/[id]/lobby`) → **Active Session** (`/sessions/[id]/*`) wrapped in a persistent left **Sidebar**.
-2. **Four Game Modes**: `Open Play` (4-In / 4-Out), `Winners Stay & Split`, `Challenge Court` (king-of-the-court with streak cap), and `Time-Based` (countdown clock, warnings, auto-call) — plus **Mixed Doubles** format support and per-player **Win/Loss tracking**.
+2. **Three Core Game Modes**: `Open Play` (4-In / 4-Out), `Winner/Winner vs Loser/Loser` (dual-pool queue matching winners vs winners and losers vs losers), and `Winner Takes All` (bracketed round-robin tournament with Seeded High-Low balanced pairing, live leaderboard, and grand prize) — plus **Mixed Doubles** format support and per-player **Win/Loss tracking**.
 3. **Five Skill Tiers**: Beginner, Low Intermediate, Intermediate, High Intermediate, and Advanced, with **gender metadata** and explicit **mixing rules** to keep foursomes balanced.
 4. **QMaster Composite Dispatch Engine**: Transparently and fairly assigns waiting players to open courts using a sliding candidate window of the **first 14 eligible players** (FIFO backbone), ranked by Waited Longest, Skill Mix, New Partners, and a **repeat-opponent penalty**. Every court assignment displays a tappable "Why these 4?" badge and a full **audit trail**.
 5. **Automated Court Audio & Visual Calling**: Uses the device's native offline Web Speech API (with selectable voices, horns/bells, and per-screen audio controls) to call player names and court numbers over connected speakers, paired with a high-visibility full-screen visual flash.
@@ -25,10 +25,10 @@ PaddleQ is an offline-first court operating system that runs both as a dedicated
 
 ### Session Initialization & Setup
 
-1. As an organizer, I want to open the Landing Page and tap "Start a session →" or "Try demo", so that I can begin setup with one touch without an account.
+1. As an organizer, I want to open the Landing Page and tap "Start a session →", so that I can begin setup with one touch without an account.
 2. As an organizer, I want a 4-step New Session Wizard (`/sessions/new`), so that I configure Details, Game Mode, Players, and Review in a guided sequence instead of a single modal.
 3. As an organizer, I want to set the session name, court count (1 to 12 via stepper), record-scores mode (Just winners vs Winners and scores), and target score in Step 1 (Details), so that the board matches the venue's active capacity.
-4. As an organizer, I want to pick the Game Mode (`Open Play`, `Winners Stay & Split`, `Challenge Court`, or `Time-Based`) and toggle "Enable Court Audio" in Step 2, so that rotation and audio rules are configured up front.
+4. As an organizer, I want to pick the Game Mode (`Open Play`, `Winner/Winner vs Loser/Loser`, or `Winner Takes All`) and toggle "Enable Court Audio" in Step 2, so that rotation and audio rules are configured up front.
 5. As an organizer, I want to bulk-add or pre-populate players in Step 3 (Players), so that I can optionally pre-load a roster before the session starts.
 6. As an organizer, I want a Review step (Step 4) summarizing all settings before tapping "Start session →", so that I can confirm the configuration and proceed to the Lobby.
 7. As an organizer, I want to establish a 4-digit PIN (defaulting to 1234) in the Settings screen after launch, so that players cannot tamper with court counts or rotation settings.
@@ -115,7 +115,7 @@ PaddleQ is an offline-first court operating system that runs both as a dedicated
 
 1. **Application Directory (`app/`)**: All Next.js application code, components, state management, and tests reside inside the [`app/`](file:///C:/Users/Jeffrey/Desktop/Project/Pickle_app/PickleQ/app) directory. The repository root remains reserved for agent workflow files, GLOSSARY.md, ADRs, documentation, and the issue tracker.
 2. **Multi-Screen Routing Workflow** (replaces the single-screen modal launcher):
-   - `/` — Landing Page: dark "Electric Obsidian" hero with "Start a session →" and "Try demo" actions alongside a live preview showcase.
+   - `/` — Landing Page: dark "Electric Obsidian" hero with a "Start a session →" action alongside a live preview showcase.
    - `/sessions/new` — 4-step New Session Wizard: **① Details** (name, courts stepper, record-scores mode, target score) → **② Game Mode** (4 modes + Enable Court Audio toggle) → **③ Players** (bulk add / pre-populate) → **④ Review & Launch** (navigates to Lobby).
    - `/sessions/[id]/lobby` — Pre-session Lobby: status tabs (`Not here`, `Ready`, `Resting`), attendance progress bar, and "Start session →" CTA to transition to `Live`.
    - `/sessions/[id]` — Active courts view (`Live`), wrapped in the persistent sidebar layout.

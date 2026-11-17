@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
 import { db } from '../../db/db';
 import { startSession } from '../session/sessionService';
-import { getOrCreatePlayer, joinSolo, joinPair } from '../queue/queueService';
+import { getOrCreatePlayer, joinPair } from '../queue/queueService';
 import {
   verifyPin,
   setPin,
@@ -78,9 +78,9 @@ describe('adminService', () => {
   describe('Game mode', () => {
     it('switches the session game mode', async () => {
       const session = await startSession({ gameMode: 'open-play' });
-      await updateGameMode(session.id, 'challenge-court');
+      await updateGameMode(session.id, 'winner-vs-loser-pools');
       const stored = await db.sessions.get(session.id);
-      expect(stored?.gameMode).toBe('challenge-court');
+      expect(stored?.gameMode).toBe('winner-vs-loser-pools');
     });
   });
 

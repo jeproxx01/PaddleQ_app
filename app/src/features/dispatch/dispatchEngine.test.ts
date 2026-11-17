@@ -231,4 +231,77 @@ describe('dispatchEngine', () => {
       expect(result.reasons).not.toContain('No repeat opponents');
     });
   });
+
+  describe('New Game Mode Dispatches', () => {
+    it('dispatches Winner vs Winner from the Winners Pool in winner-vs-loser-pools mode', async () => {
+      const session = await startSession({ courtCount: 1, gameMode: 'winner-vs-loser-pools' });
+      const [w1, w2, w3, w4] = await Promise.all([
+        getOrCreatePlayer('W1', 'intermediate'),
+        getOrCreatePlayer('W2', 'intermediate'),
+        getOrCreatePlayer('W3', 'intermediate'),
+        getOrCreatePlayer('W4', 'intermediate'),
+      ]);
+
+      const now = Date.now();
+      // Add two winner stacks
+      await db.stacks.bulkAdd([
+        {
+          id: 'stack-w1',
+          sessionId: session.id,
+          entryType: 'pair',
+          playerIds: [w1.id, w2.id],
+          pool: 'winners',
+          queuedAt: now,
+          status: 'waiting',
+        },
+        {
+          id: 'stack-w2',
+          sessionId: session.id,
+          entryType: 'pair',
+          playerIds: [w3.id, w4.id],
+          pool: 'winners',
+          queuedAt: now + 1,
+          status: 'waiting',
+        },
+      ]);
+
+      const dispatches = await runAutoDispatch(session.id);
+      expect(dispatches).toHaveLength(1);
+      expect(dispatches[0].team1PlayerIds).toEqual([w1.id, w2.id]);
+      expect(dispatches[0].team2PlayerIds).toEqual([w3.id, w4.id]);
+      expect(dispatches[0].selectionReasons).toContain('Winners Pool Match');
+    });
+
+    it('dispatches scheduled round robin fixtures in winner-takes-all-round-robin mode', async () => {
+      const session = await startSession({ courtCount: 1, gameMode: 'winner-takes-all-round-robin' });
+      const [p1, p2, p3, p4] = await Promise.all([
+        getOrCreatePlayer('T1A', 'intermediate'),
+        getOrCreatePlayer('T1B', 'intermediate'),
+        getOrCreatePlayer('T2A', 'intermediate'),
+        getOrCreatePlayer('T2B', 'intermediate'),
+      ]);
+
+      await db.tournamentTeams.bulkAdd([
+        { id: 'team-1', sessionId: session.id, name: 'Team 1', playerIds: [p1.id, p2.id], totalPoints: 0, pointsConceded: 0, wins: 0, losses: 0 },
+        { id: 'team-2', sessionId: session.id, name: 'Team 2', playerIds: [p3.id, p4.id], totalPoints: 0, pointsConceded: 0, wins: 0, losses: 0 },
+      ]);
+
+      await db.tournamentFixtures.add({
+        id: 'fix-1',
+        sessionId: session.id,
+        round: 1,
+        team1Id: 'team-1',
+        team2Id: 'team-2',
+        status: 'scheduled',
+      });
+
+      const dispatches = await runAutoDispatch(session.id);
+      expect(dispatches).toHaveLength(1);
+      expect(dispatches[0].team1PlayerIds).toEqual([p1.id, p2.id]);
+      expect(dispatches[0].team2PlayerIds).toEqual([p3.id, p4.id]);
+
+      const fixture = await db.tournamentFixtures.get('fix-1');
+      expect(fixture?.status).toBe('in_play');
+    });
+  });
 });

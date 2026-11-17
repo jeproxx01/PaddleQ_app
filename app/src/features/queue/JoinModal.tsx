@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, User, Users, ShieldAlert, Sparkles, Check } from 'lucide-react';
 import { type SkillLevel } from '../../db/db';
 import { SKILL_LEVELS_ORDERED, SKILL_LEVEL_LABELS, SKILL_LEVEL_ABBREV } from '../../shared/display';
@@ -21,30 +21,24 @@ interface PlayerFormData {
 
 export function JoinModal({ sessionId, initialMode = 'solo', onClose, onJoined }: JoinModalProps) {
   const [entryMode, setEntryMode] = useState<'solo' | 'pair' | 'foursome'>(initialMode);
-  const [players, setPlayers] = useState<PlayerFormData[]>([
-    { name: '', skillLevel: 'intermediate', suggestions: [] },
-  ]);
+  const [players, setPlayers] = useState<PlayerFormData[]>(() =>
+    Array.from({ length: initialMode === 'solo' ? 1 : initialMode === 'pair' ? 2 : 4 }, () => ({
+      name: '',
+      skillLevel: 'intermediate',
+      suggestions: [],
+    }))
+  );
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Sync player input count with entryMode
-  useEffect(() => {
-    if (entryMode === 'solo') {
-      setPlayers((prev) => [prev[0] || { name: '', skillLevel: 'intermediate', suggestions: [] }]);
-    } else if (entryMode === 'pair') {
-      setPlayers((prev) => [
-        prev[0] || { name: '', skillLevel: 'intermediate', suggestions: [] },
-        prev[1] || { name: '', skillLevel: 'intermediate', suggestions: [] },
-      ]);
-    } else if (entryMode === 'foursome') {
-      setPlayers((prev) => [
-        prev[0] || { name: '', skillLevel: 'intermediate', suggestions: [] },
-        prev[1] || { name: '', skillLevel: 'intermediate', suggestions: [] },
-        prev[2] || { name: '', skillLevel: 'intermediate', suggestions: [] },
-        prev[3] || { name: '', skillLevel: 'intermediate', suggestions: [] },
-      ]);
-    }
-  }, [entryMode]);
+  // Sync player input count with entryMode on mode change.
+  const changeMode = (mode: 'solo' | 'pair' | 'foursome') => {
+    setEntryMode(mode);
+    const count = mode === 'solo' ? 1 : mode === 'pair' ? 2 : 4;
+    setPlayers((prev) =>
+      Array.from({ length: count }, (_, i) => prev[i] || { name: '', skillLevel: 'intermediate', suggestions: [] })
+    );
+  };
 
   const handleNameChange = async (index: number, value: string) => {
     const updated = [...players];
@@ -142,7 +136,7 @@ export function JoinModal({ sessionId, initialMode = 'solo', onClose, onJoined }
         <div className="grid grid-cols-3 gap-2 my-5">
           <button
             type="button"
-            onClick={() => setEntryMode('solo')}
+            onClick={() => changeMode('solo')}
             className={`h-12 rounded-xl border text-sm font-semibold flex items-center justify-center gap-1.5 transition-all ${
               entryMode === 'solo'
                 ? 'border-volt bg-volt/15 text-volt font-bold'
@@ -155,7 +149,7 @@ export function JoinModal({ sessionId, initialMode = 'solo', onClose, onJoined }
 
           <button
             type="button"
-            onClick={() => setEntryMode('pair')}
+            onClick={() => changeMode('pair')}
             className={`h-12 rounded-xl border text-sm font-semibold flex items-center justify-center gap-1.5 transition-all ${
               entryMode === 'pair'
                 ? 'border-volt bg-volt/15 text-volt font-bold'
@@ -168,7 +162,7 @@ export function JoinModal({ sessionId, initialMode = 'solo', onClose, onJoined }
 
           <button
             type="button"
-            onClick={() => setEntryMode('foursome')}
+            onClick={() => changeMode('foursome')}
             className={`h-12 rounded-xl border text-sm font-semibold flex items-center justify-center gap-1.5 transition-all ${
               entryMode === 'foursome'
                 ? 'border-volt bg-volt/15 text-volt font-bold'

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Volume2, VolumeX, Activity, RefreshCw, Users } from 'lucide-react';
@@ -11,6 +11,7 @@ import { CourtGrid } from '@/features/courts/CourtGrid';
 import { CourtCallModal } from '@/features/courts/CourtCallModal';
 import { WhyTheseFourModal } from '@/features/dispatch/WhyTheseFourModal';
 import { ScorekeeperModal } from '@/features/scoring/ScorekeeperModal';
+import { TournamentLeaderboard } from '@/features/tournament/TournamentLeaderboard';
 import { GAME_MODE_LABELS } from '@/shared/display';
 import type { CourtWithMatch } from '@/features/courts/courtService';
 
@@ -22,10 +23,11 @@ export default function CourtsPage() {
   const [whyTheseFourCourt, setWhyTheseFourCourt] = useState<CourtWithMatch | null>(null);
   const [scoreCourt, setScoreCourt] = useState<CourtWithMatch | null>(null);
   const [callIndex, setCallIndex] = useState(0);
-
-  useEffect(() => {
+  const [prevCalls, setPrevCalls] = useState(calls);
+  if (prevCalls !== calls) {
+    setPrevCalls(calls);
     setCallIndex(0);
-  }, [calls]);
+  }
 
   if (loading) {
     return (
@@ -90,6 +92,10 @@ export default function CourtsPage() {
 
       {/* Board */}
       <main className="flex-1 p-6 flex flex-col gap-6">
+        {session.gameMode === 'winner-takes-all-round-robin' && (
+          <TournamentLeaderboard sessionId={session.id} />
+        )}
+
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
             Active Courts ({courts.length})

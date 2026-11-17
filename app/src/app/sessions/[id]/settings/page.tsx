@@ -12,7 +12,7 @@ import {
   Users,
   Link2,
 } from 'lucide-react';
-import { db, type Player, type Session } from '@/db/db';
+import { db, type Court, type Player, type Session, type TournamentFixture, type TournamentTeam } from '@/db/db';
 import { useSessionId } from '@/features/layout/SessionContext';
 import {
   GAME_MODES_ORDERED,
@@ -22,6 +22,10 @@ import {
 } from '@/shared/display';
 import { getWaitingStacksWithPlayers, removePlayerFromQueue, disbandStack, type StackWithPlayers } from '@/features/queue/queueService';
 import { endSession } from '@/features/session/sessionService';
+import {
+  overrideTournamentFixtureScore,
+  regenerateTournament,
+} from '@/features/tournament/tournamentService';
 import {
   verifyPin,
   setPin,
@@ -47,16 +51,27 @@ export default function SettingsPage() {
   const [newPinError, setNewPinError] = useState<string | null>(null);
 
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
+  const [fixtures, setFixtures] = useState<TournamentFixture[]>([]);
+  const [teams, setTeams] = useState<TournamentTeam[]>([]);
+  const [courts, setCourts] = useState<Court[]>([]);
 
   const load = useCallback(async () => {
     const s = await db.sessions.get(sessionId);
     setSession(s ?? null);
     setStacks(await getWaitingStacksWithPlayers(sessionId));
     setPlayers(await db.players.toArray());
+    const allFixtures = await db.tournamentFixtures.where('sessionId').equals(sessionId).toArray();
+    setFixtures(allFixtures.sort((a, b) => a.round - b.round));
+    const allTeams = await db.tournamentTeams.where('sessionId').equals(sessionId).toArray();
+    setTeams(allTeams);
+    setCourts(await db.courts.toArray());
   }, [sessionId]);
 
   useEffect(() => {
-    load();
+    const id = setTimeout(() => {
+      void load();
+    }, 0);
+    return () => clearTimeout(id);
   }, [load]);
 
   // Auto-verify once 4 digits are entered.
@@ -79,6 +94,7 @@ export default function SettingsPage() {
 
   const lockedPairs = stacks.filter((s) => s.teamLockId);
   const waitingPlayers = stacks.flatMap((s) => s.players);
+  const hasStarted = fixtures.some((f) => f.status !== 'scheduled');
 
   const pressDigit = (d: string) => {
     if (pinEntry.length < 4) setPinEntry((p) => p + d);
@@ -219,6 +235,103 @@ export default function SettingsPage() {
               ))}
             </div>
           </Section>
+
+          {/* Tournament Management */}
+          {session.gameMode === 'winner-takes-all-round-robin' && (
+            <Section title="Tournament Management">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-text-secondary">
+                    {fixtures.length} Fixtures • {teams.length} Teams
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await regenerateTournament(sessionId);
+                      await load();
+                    }}
+                    disabled={hasStarted}
+                    title={hasStarted ? 'Cannot re-seed after the tournament has started' : 'Re-pair teams before the first fixture is dispatched'}
+                    className="px-3 py-1.5 rounded-lg bg-obsidian-dark border border-volt/40 text-volt text-xs font-semibold hover:bg-volt/10 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Re-seed Teams
+                  </button>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {fixtures.length === 0 ? (
+                    <p className="text-xs text-text-secondary">No tournament fixtures generated yet.</p>
+                  ) : (
+                    fixtures.map((f) => {
+                      const t1 = teams.find((t) => t.id === f.team1Id);
+                      const t2 = teams.find((t) => t.id === f.team2Id);
+                      const court = courts.find((c) => c.id === f.courtId);
+                      const isDone = f.status === 'completed';
+
+                      return (
+                        <div
+                          key={f.id}
+                          className="p-2.5 rounded-xl bg-obsidian-dark/60 border border-card-border/50 text-xs"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <span className="font-mono text-volt font-bold mr-2">R{f.round}</span>
+                              <span className="text-white font-medium">
+                                {t1?.name.split('(')[0].trim() ?? 'Team 1'} vs {t2?.name.split('(')[0].trim() ?? 'Team 2'}
+                              </span>
+                              {court && (
+                                <span className="ml-2 text-text-secondary">Court {court.courtNumber}</span>
+                              )}
+                              {isDone ? (
+                                <span className="ml-2 font-mono text-cyan">
+                                  ({f.score1} - {f.score2})
+                                </span>
+                              ) : (
+                                <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-obsidian-dark text-text-secondary border border-card-border">
+                                  {f.status}
+                                </span>
+                              )}
+                            </div>
+
+                            {!isDone && (
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await overrideTournamentFixtureScore(f.id, 11, 0);
+                                    await load();
+                                  }}
+                                  className="px-2 py-1 rounded bg-obsidian-dark border border-card-border text-[11px] text-text-secondary hover:text-white"
+                                  title="Award 11-0 walkover to Team 1"
+                                >
+                                  T1 Forfeit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await overrideTournamentFixtureScore(f.id, 0, 11);
+                                    await load();
+                                  }}
+                                  className="px-2 py-1 rounded bg-obsidian-dark border border-card-border text-[11px] text-text-secondary hover:text-white"
+                                  title="Award 11-0 walkover to Team 2"
+                                >
+                                  T2 Forfeit
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {!isDone && (
+                            <FixtureScoreForm fixtureId={f.id} onApplied={load} />
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            </Section>
+          )}
 
           {/* Team locks */}
           <Section title="Team locks">
@@ -371,6 +484,61 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         {title}
       </h2>
       {children}
+    </div>
+  );
+}
+
+function FixtureScoreForm({ fixtureId, onApplied }: { fixtureId: string; onApplied: () => void }) {
+  const [score1, setScore1] = useState('');
+  const [score2, setScore2] = useState('');
+
+  const s1 = parseInt(score1, 10);
+  const s2 = parseInt(score2, 10);
+  const invalid = score1 === '' || score2 === '' || Number.isNaN(s1) || Number.isNaN(s2) || s1 === s2;
+
+  const apply = async () => {
+    if (invalid) return;
+    try {
+      await overrideTournamentFixtureScore(fixtureId, s1, s2);
+      setScore1('');
+      setScore2('');
+      onApplied();
+    } catch {
+      // Fixture may have completed concurrently; the next load() reflects true state.
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-card-border/40">
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        value={score1}
+        onChange={(e) => setScore1(e.target.value)}
+        placeholder="Score"
+        aria-label="Team 1 score"
+        className="w-16 h-8 rounded bg-obsidian-dark border border-card-border px-2 text-center font-mono text-white focus:outline-none focus:border-volt"
+      />
+      <span className="text-text-secondary">-</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={0}
+        value={score2}
+        onChange={(e) => setScore2(e.target.value)}
+        placeholder="Score"
+        aria-label="Team 2 score"
+        className="w-16 h-8 rounded bg-obsidian-dark border border-card-border px-2 text-center font-mono text-white focus:outline-none focus:border-volt"
+      />
+      <button
+        type="button"
+        onClick={apply}
+        disabled={invalid}
+        className="px-2 py-1.5 rounded bg-obsidian-dark border border-card-border text-[11px] text-text-secondary hover:text-white disabled:opacity-40"
+      >
+        Save score
+      </button>
     </div>
   );
 }

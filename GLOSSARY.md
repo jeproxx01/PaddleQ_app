@@ -25,20 +25,24 @@ A pair bound to play together — as stacked partners or as court partners — u
 _Avoid_: duo, partnership flag
 
 **Game Mode**:
-The session-wide rule for how a court runs and who leaves after a match: `Open Play` (4-In / 4-Out, everyone rotates), `Winners Stay & Split` (winners remain until capped), `Challenge Court` (king-of-the-court with a streak cap), or `Time-Based` (countdown clock with auto-call). Chosen in the New Session Wizard and changeable mid-session in the PIN admin drawer.
+The session-wide rule for how a court runs and who leaves after a match: `Open Play` (4-In / 4-Out, everyone rotates), `Winner/Winner vs Loser/Loser` (split queue pools: winning pairs play winning pairs, losing pairs play losing pairs), or `Winner Takes All` (bracketed round-robin tournament with balanced High-Low pairing, cumulative point scoring, and a grand prize for highest total score). Chosen in the New Session Wizard and changeable mid-session in the PIN admin drawer.
 _Avoid_: rotation type, algorithm, rotation mode
 
-**Max Win Limit**:
-The cap (2 consecutive wins) that forces winners off the court in Winners Stay & Split, so no team holds a court indefinitely.
-_Avoid_: win streak cap, streak limit
-
-**Challenge Court**:
-A `Game Mode` where the winning pair holds the court and faces the next waiting pair, subject to a streak cap (the Max Win Limit concept). King-of-the-court variant.
+**Winner vs Loser Pools**:
+A `Game Mode` where after a match, winning partners stay together in the Winners Pool to challenge another winning pair, losing partners stay together in the Losers Pool to face another losing pair, and fresh entrants enter as unranked neutral pairs.
 _Avoid_: king-of-the-hill, ladder court
 
-**Time-Based**:
-A `Game Mode` where courts run on a countdown clock (default 15 minutes), flashing a warning at 2 minutes remaining and auto-calling + auto-ending at time-up.
-_Avoid_: timed play, shot clock
+**Winner Takes All**:
+A `Game Mode` tournament format where entrants are auto-paired using a Seeded High-Low balanced draw (preventing two advanced players from being teammates). Teams compete in pre-generated round-robin fixtures, accumulating points across all matches to top the live leaderboard and win the prize.
+_Avoid_: single elimination, knockout bracket
+
+**Leaderboard**:
+The live, continuously-updating ranking of tournament teams on the Kiosk and Broadcast screens, ordered by total points, then point differential, then wins.
+_Avoid_: standings
+
+**Standings**:
+The final tournament table on the Summary route ranking every team by total points, point differential, and win/loss record — the source of the podium and export.
+_Avoid_: leaderboard
 
 **Skill Level**:
 A player's self-declared tier at first join: Beginner, Low Intermediate, Intermediate, High Intermediate, or Advanced. Used to balance the four picked for a court; admins may override.
@@ -53,8 +57,8 @@ A format where a foursome is composed of two male and two female players. Suppor
 _Avoid_: co-ed, mixed pairs
 
 **Win/Loss**:
-A per-player record of match wins and losses tracked across a single Session, surfaced in the recap and export.
-_Avoid_: standings, ranking
+A per-player record of match wins and losses tracked across a single Session, surfaced in the recap and export. The tournament-team equivalent is Standings, not this term.
+_Avoid_: ranking
 
 **Dispatch**:
 The act of assigning the next eligible Stack to an Open court, announcing it via audio call and on-screen flash.
@@ -73,7 +77,7 @@ The PIN-protected organizer controls: court count, game mode, team unlocks, cour
 _Avoid_: settings panel, admin panel
 
 **Landing Page**:
-The root route (`/`) hero screen with "Start a session →" and "Try demo" actions and a live preview showcase.
+The root route (`/`) hero screen with a "Start a session →" action and a live preview showcase.
 _Avoid_: home page, splash screen
 
 **New Session Wizard**:

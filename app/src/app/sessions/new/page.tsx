@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Volume2, VolumeX, ArrowRight, ArrowLeft, Check, Users } from 'lucide-react';
 import { type GameMode, type SkillLevel, type SkillMixing, type RecordScoresMode } from '@/db/db';
-import { GAME_MODES_ORDERED, GAME_MODE_LABELS, SKILL_LEVELS_ORDERED, SKILL_LEVEL_LABELS } from '@/shared/display';
+import { GAME_MODES_ORDERED, GAME_MODE_LABELS } from '@/shared/display';
 import { startSession } from '@/features/session/sessionService';
 import { getOrCreatePlayer, joinSolo } from '@/features/queue/queueService';
 
@@ -20,7 +20,7 @@ export default function NewSessionWizard() {
   const [targetScore, setTargetScore] = useState<number>(11);
   const [customTargetScore, setCustomTargetScore] = useState('15');
   const [gameMode, setGameMode] = useState<GameMode>('open-play');
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState(15);
+  const timeLimitMinutes = 15;
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [autoFill, setAutoFill] = useState(true);
   const [skillMixing, setSkillMixing] = useState<SkillMixing>('auto-balance');
@@ -244,32 +244,17 @@ export default function NewSessionWizard() {
               </div>
             </div>
 
-            {gameMode === 'time-based' && (
-              <div>
-                <label className="block text-sm font-semibold uppercase tracking-wider text-text-secondary mb-2">
-                  Game duration (minutes)
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setTimeLimitMinutes((m) => Math.max(1, m - 1))}
-                    className="h-14 w-14 rounded-xl bg-card-surface border border-card-border text-2xl font-bold hover:border-volt/50"
-                  >
-                    -
-                  </button>
-                  <div className="flex-1 h-14 flex items-center justify-center rounded-xl bg-card-surface border border-card-border text-2xl font-mono font-bold text-volt">
-                    {timeLimitMinutes}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setTimeLimitMinutes((m) => m + 1)}
-                    className="h-14 w-14 rounded-xl bg-card-surface border border-card-border text-2xl font-bold hover:border-volt/50"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="p-4 rounded-xl bg-card-surface border border-card-border text-xs text-text-secondary leading-relaxed">
+              {gameMode === 'open-play' && (
+                <p>Standard 4-in / 4-out rotation. All four players return to the paddle rack queue after each match.</p>
+              )}
+              {gameMode === 'winner-vs-loser-pools' && (
+                <p>Winning pairs stay together in the Winners Pool to challenge another winning pair. Losing pairs stay together in the Losers Pool to face another losing pair.</p>
+              )}
+              {gameMode === 'winner-takes-all-round-robin' && (
+                <p>Tournament format with Seeded High-Low balanced pairing (prevents two advanced players on one team). Teams play a round-robin schedule and accumulate total points toward the grand prize.</p>
+              )}
+            </div>
 
             <div className="flex items-center justify-between p-4 rounded-xl bg-card-surface border border-card-border">
               <div className="flex items-center gap-2">

@@ -16,6 +16,8 @@ describe('PaddleQDatabase', () => {
     expect(db.courts).toBeDefined();
     expect(db.matches).toBeDefined();
     expect(db.deviceLinks).toBeDefined();
+    expect(db.tournamentTeams).toBeDefined();
+    expect(db.tournamentFixtures).toBeDefined();
   });
 
   it('can create and retrieve an active Session with valid court count and PIN', async () => {

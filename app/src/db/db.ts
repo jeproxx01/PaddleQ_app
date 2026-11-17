@@ -7,9 +7,8 @@ import Dexie, { type EntityTable } from 'dexie';
 
 export const GAME_MODES = [
   'open-play',
-  'winners-stay-split',
-  'challenge-court',
-  'time-based',
+  'winner-vs-loser-pools',
+  'winner-takes-all-round-robin',
 ] as const;
 export type GameMode = (typeof GAME_MODES)[number];
 
@@ -66,6 +65,8 @@ export interface SessionPlayer {
   joinedAt: number;
 }
 
+export type QueuePool = 'neutral' | 'winners' | 'losers';
+
 export interface Stack {
   id: string;
   sessionId: string;
@@ -75,6 +76,32 @@ export interface Stack {
   teamLockPlayerIds?: [string, string];
   queuedAt: number;
   status: 'waiting' | 'dispatched' | 'cancelled';
+  pool?: QueuePool;
+}
+
+export interface TournamentTeam {
+  id: string;
+  sessionId: string;
+  name: string;
+  playerIds: [string, string];
+  totalPoints: number;
+  pointsConceded: number;
+  wins: number;
+  losses: number;
+}
+
+export interface TournamentFixture {
+  id: string;
+  sessionId: string;
+  round: number;
+  team1Id: string;
+  team2Id: string;
+  status: 'scheduled' | 'in_play' | 'completed';
+  courtId?: string;
+  matchId?: string;
+  score1?: number;
+  score2?: number;
+  winnerTeamId?: string;
 }
 
 export interface Court {
@@ -140,6 +167,8 @@ export class PaddleQDatabase extends Dexie {
   courts!: EntityTable<Court, 'id'>;
   matches!: EntityTable<Match, 'id'>;
   deviceLinks!: EntityTable<DeviceLink, 'id'>;
+  tournamentTeams!: EntityTable<TournamentTeam, 'id'>;
+  tournamentFixtures!: EntityTable<TournamentFixture, 'id'>;
 
   constructor() {
     super('PaddleQDatabase');
@@ -153,6 +182,10 @@ export class PaddleQDatabase extends Dexie {
     this.version(2).stores({
       sessionPlayers: 'id, sessionId, playerId, checkInState',
       deviceLinks: 'id, sessionId, role',
+    });
+    this.version(3).stores({
+      tournamentTeams: 'id, sessionId',
+      tournamentFixtures: 'id, sessionId, round, status',
     });
   }
 }

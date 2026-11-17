@@ -7,9 +7,13 @@
 **Status:** ready-for-agent
 
 - [ ] Summary route (`/sessions/[id]/summary`) renders the recap dashboard within the persistent sidebar layout.
-- [ ] Per-player Win/Loss summary with wins, losses, and games played.
+- [x] Per-player Win/Loss summary with wins, losses, and games played.
 - [ ] Courts played per player (aggregated from match history).
 - [ ] Average wait time per player (from dispatch timestamps).
 - [ ] `.xlsx` export generated entirely client-side (offline-capable) with no external service.
 - [ ] Export includes per-player stats and match history rows, downloaded as a file.
 - [ ] Vitest unit tests cover the recap aggregation and `.xlsx` serialization logic.
+
+## Comments
+
+- Per-player Win/Loss + games-played recap and CSV export landed on the Summary route as a partial start of this ticket (built alongside #15's tournament summary). Remaining: courts played, average wait time, and `.xlsx` export.

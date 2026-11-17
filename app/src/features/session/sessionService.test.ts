@@ -34,13 +34,13 @@ describe('sessionService', () => {
     const session = await startSession({
       courtCount: 6,
       pin: '9876',
-      gameMode: 'winners-stay-split',
+      gameMode: 'winner-takes-all-round-robin',
       audioEnabled: false,
     });
 
     expect(session.courtCount).toBe(6);
     expect(session.pin).toBe('9876');
-    expect(session.gameMode).toBe('winners-stay-split');
+    expect(session.gameMode).toBe('winner-takes-all-round-robin');
     expect(session.audioEnabled).toBe(false);
 
     const courts = await db.courts.where('sessionId').equals(session.id).toArray();

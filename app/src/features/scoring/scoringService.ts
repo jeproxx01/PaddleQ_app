@@ -1,4 +1,6 @@
 import { db, type Match } from '../../db/db';
+import { recordTournamentResult } from '../tournament/tournamentService';
+import { applyWinLoss } from './winLoss';
 
 /**
  * Scorekeeping domain service (ticket #06).
@@ -29,19 +31,6 @@ function winningAndLosingIds(match: Match, winningTeam: 1 | 2): [string[], strin
   return [winningIds, losingIds];
 }
 
-async function applyWinLoss(
-  winningIds: string[],
-  losingIds: string[],
-  delta: 1 | -1
-): Promise<void> {
-  await db.players.where('id').anyOf(winningIds).modify((p) => {
-    p.wins += delta;
-  });
-  await db.players.where('id').anyOf(losingIds).modify((p) => {
-    p.losses += delta;
-  });
-}
-
 export async function recordScore(
   sessionId: string,
   matchId: string,
@@ -60,21 +49,6 @@ export async function recordScore(
 
   const [winningIds, losingIds] = winningAndLosingIds(match, winningTeam);
 
-  const isChallenge = session.gameMode === 'challenge-court';
-  const isWinnersStay = session.gameMode === 'winners-stay-split' || isChallenge;
-
-  let consecutiveWins: number;
-  if (isChallenge) {
-    // Challenge Court: team1 holds the court. A successful defense increments the
-    // streak; a challenger win (or the first match) starts the new holder at 1.
-    consecutiveWins =
-      winningTeam === 1 && match.consecutiveWins > 0 ? match.consecutiveWins + 1 : 1;
-  } else {
-    consecutiveWins = isWinnersStay ? match.consecutiveWins + 1 : match.consecutiveWins;
-  }
-
-  const capped = isWinnersStay && consecutiveWins >= MAX_WIN_LIMIT;
-
   const now = Date.now();
   await db.matches.update(matchId, {
     score1,
@@ -82,10 +56,50 @@ export async function recordScore(
     winningTeam,
     status: 'completed',
     completedAt: now,
-    consecutiveWins,
   });
 
   await applyWinLoss(winningIds, losingIds, 1);
+
+  // If session is Winner vs Loser Pools, route winning pair to Winners Pool and losing pair to Losers Pool
+  if (session.gameMode === 'winner-vs-loser-pools') {
+    await db.stacks.bulkAdd([
+      {
+        id: crypto.randomUUID(),
+        sessionId,
+        entryType: 'pair',
+        playerIds: winningIds,
+        teamLockId: crypto.randomUUID(),
+        teamLockPlayerIds: [winningIds[0], winningIds[1]],
+        pool: 'winners',
+        queuedAt: now,
+        status: 'waiting',
+      },
+      {
+        id: crypto.randomUUID(),
+        sessionId,
+        entryType: 'pair',
+        playerIds: losingIds,
+        teamLockId: crypto.randomUUID(),
+        teamLockPlayerIds: [losingIds[0], losingIds[1]],
+        pool: 'losers',
+        queuedAt: now + 1,
+        status: 'waiting',
+      },
+    ]);
+  }
+
+  // If session is Winner Takes All, update the tournament fixture & standings
+  if (session.gameMode === 'winner-takes-all-round-robin') {
+    const fixture = await db.tournamentFixtures
+      .where('sessionId')
+      .equals(sessionId)
+      .and((f) => f.matchId === matchId || (f.courtId === match.courtId && f.status === 'in_play'))
+      .first();
+
+    if (fixture) {
+      await recordTournamentResult(fixture.id, score1, score2, matchId);
+    }
+  }
 
   // Open the court so the next dispatch can fill it.
   await db.courts.update(match.courtId, {
@@ -94,16 +108,15 @@ export async function recordScore(
     updatedAt: now,
   });
 
-  const winnersStay = isWinnersStay && !capped;
-  const rotatingPlayerIds = winnersStay ? losingIds : [...winningIds, ...losingIds];
-  const stayingPlayerIds = winnersStay ? winningIds : [];
+  const rotatingPlayerIds = [...winningIds, ...losingIds];
+  const stayingPlayerIds: string[] = [];
 
   return {
     matchId,
     courtId: match.courtId,
     winningTeam,
-    winnersStay,
-    capped,
+    winnersStay: false,
+    capped: false,
     rotatingPlayerIds,
     stayingPlayerIds,
   };
@@ -161,8 +174,7 @@ export async function undoLastScore(sessionId: string): Promise<string | undefin
     await applyWinLoss(winningIds, losingIds, -1);
   }
 
-  const revertedConsecutiveWins =
-    match.gameMode === 'winners-stay-split' ? Math.max(0, match.consecutiveWins - 1) : match.consecutiveWins;
+  const revertedConsecutiveWins = Math.max(0, match.consecutiveWins - 1);
 
   await db.matches.update(match.id, {
     score1: undefined,

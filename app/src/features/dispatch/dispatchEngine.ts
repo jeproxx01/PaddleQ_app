@@ -1,5 +1,5 @@
 import { db } from '../../db/db';
-import type { DispatchAudit, EvaluatedFoursome, Match, Player, SkillLevel, Stack } from '../../db/db';
+import type { Court, DispatchAudit, EvaluatedFoursome, Match, Player, Session, SkillLevel, Stack } from '../../db/db';
 
 /**
  * QMaster Composite Dispatch Engine.
@@ -313,6 +313,128 @@ async function markStacksDispatched(sessionId: string, dispatchedPlayerIds: stri
   }
 }
 
+async function dispatchNextTournamentFixture(
+  sessionId: string,
+  targetCourt: Court
+): Promise<Match[]> {
+  const scheduledFixtures = (
+    await db.tournamentFixtures.where('sessionId').equals(sessionId).toArray()
+  )
+    .filter((f) => f.status === 'scheduled')
+    .sort((a, b) => a.round - b.round);
+
+  if (scheduledFixtures.length === 0) return [];
+
+  const activeMatches = (
+    await db.matches.where('sessionId').equals(sessionId).toArray()
+  ).filter((m) => m.status === 'in_play');
+  const activePlayerIds = new Set(activeMatches.flatMap((m) => m.playerIds));
+
+  for (const fixture of scheduledFixtures) {
+    const team1 = await db.tournamentTeams.get(fixture.team1Id);
+    const team2 = await db.tournamentTeams.get(fixture.team2Id);
+    if (!team1 || !team2) continue;
+
+    const hasActivePlayer = [...team1.playerIds, ...team2.playerIds].some((pid) =>
+      activePlayerIds.has(pid)
+    );
+    if (hasActivePlayer) continue;
+
+    const allPids = [...team1.playerIds, ...team2.playerIds];
+    const players = await db.players.where('id').anyOf(allPids).toArray();
+    const now = Date.now();
+
+    const match: Match = {
+      id: crypto.randomUUID(),
+      sessionId,
+      courtId: targetCourt.id,
+      gameMode: 'winner-takes-all-round-robin',
+      playerIds: allPids,
+      team1PlayerIds: [...team1.playerIds],
+      team2PlayerIds: [...team2.playerIds],
+      consecutiveWins: 0,
+      selectionReasons: [`Round ${fixture.round} Tournament Fixture`, `${team1.name} vs ${team2.name}`],
+      mixedDoubles: false,
+      status: 'in_play',
+      startedAt: now,
+    };
+
+    await db.matches.add(match);
+    await db.courts.update(targetCourt.id, {
+      status: 'in_play',
+      activeMatchId: match.id,
+      updatedAt: now,
+    });
+    await db.tournamentFixtures.update(fixture.id, {
+      status: 'in_play',
+      courtId: targetCourt.id,
+      matchId: match.id,
+    });
+
+    await Promise.all(
+      players.map((p) => db.players.update(p.id, { gamesPlayed: (p.gamesPlayed ?? 0) + 1 }))
+    );
+
+    return [match];
+  }
+
+  return [];
+}
+
+async function dispatchPoolMatch(
+  sessionId: string,
+  session: Session,
+  targetCourt: Court,
+  waitingStacks: Stack[],
+  pool: 'winners' | 'losers'
+): Promise<Match | null> {
+  const poolStacks = waitingStacks.filter(
+    (s) => s.pool === pool && s.playerIds.length === 2 && s.status === 'waiting'
+  );
+  if (poolStacks.length < 2) return null;
+
+  const stack1 = poolStacks[0];
+  const stack2 = poolStacks[1];
+
+  const pids = [...stack1.playerIds, ...stack2.playerIds];
+  const players = await db.players.where('id').anyOf(pids).toArray();
+  const now = Date.now();
+
+  const match: Match = {
+    id: crypto.randomUUID(),
+    sessionId,
+    courtId: targetCourt.id,
+    gameMode: 'winner-vs-loser-pools',
+    playerIds: pids,
+    team1PlayerIds: [...stack1.playerIds],
+    team2PlayerIds: [...stack2.playerIds],
+    consecutiveWins: 0,
+    selectionReasons: [
+      pool === 'winners' ? 'Winners Pool Match' : 'Losers Pool Match',
+      REASON_WAITED_LONGEST,
+    ],
+    mixedDoubles: false,
+    status: 'in_play',
+    startedAt: now,
+  };
+
+  await db.matches.add(match);
+  await db.courts.update(targetCourt.id, {
+    status: 'in_play',
+    activeMatchId: match.id,
+    updatedAt: now,
+  });
+
+  await db.stacks.update(stack1.id, { status: 'dispatched' });
+  await db.stacks.update(stack2.id, { status: 'dispatched' });
+
+  await Promise.all(
+    players.map((p) => db.players.update(p.id, { gamesPlayed: (p.gamesPlayed ?? 0) + 1 }))
+  );
+
+  return match;
+}
+
 /**
  * Evaluates the session queue and dispatches a single foursome to the first Open
  * court. Returns the created Match (or an empty array when no dispatch is possible).
@@ -327,11 +449,25 @@ export async function runAutoDispatch(sessionId: string): Promise<Match[]> {
 
   if (openCourts.length === 0) return [];
 
+  // Tournament mode dispatches from pre-generated round robin fixtures
+  if (session.gameMode === 'winner-takes-all-round-robin') {
+    return dispatchNextTournamentFixture(sessionId, openCourts[0]);
+  }
+
   const waitingStacks = (await db.stacks.where('sessionId').equals(sessionId).toArray())
     .filter((s) => s.status === 'waiting')
     .sort((a, b) => a.queuedAt - b.queuedAt);
 
   if (waitingStacks.length === 0) return [];
+
+  // In Winner vs Loser Pools, check for pair-vs-pair in Winners or Losers pool first
+  if (session.gameMode === 'winner-vs-loser-pools') {
+    const winnersMatch = await dispatchPoolMatch(sessionId, session, openCourts[0], waitingStacks, 'winners');
+    if (winnersMatch) return [winnersMatch];
+
+    const losersMatch = await dispatchPoolMatch(sessionId, session, openCourts[0], waitingStacks, 'losers');
+    if (losersMatch) return [losersMatch];
+  }
 
   const allPlayerIds = Array.from(new Set(waitingStacks.flatMap((s) => s.playerIds)));
   const players = await db.players.where('id').anyOf(allPlayerIds).toArray();

@@ -70,7 +70,10 @@ export default function LobbyPage() {
   }, [sessionId]);
 
   useEffect(() => {
-    load();
+    const id = setTimeout(() => {
+      void load();
+    }, 0);
+    return () => clearTimeout(id);
   }, [load]);
 
   if (!session) {
