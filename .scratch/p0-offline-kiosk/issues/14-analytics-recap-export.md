@@ -4,15 +4,15 @@
 
 **Blocked by:** 04: QMaster Composite Dispatch Engine and Explainable Assignment (wait-time data), 06: Fast Numeric Scorekeeper with Game Modes and Post-Match Choice (Win/Loss records)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Summary route (`/sessions/[id]/summary`) renders the recap dashboard within the persistent sidebar layout.
+- [x] Summary route (`/sessions/[id]/summary`) renders the recap dashboard within the persistent sidebar layout.
 - [x] Per-player Win/Loss summary with wins, losses, and games played.
-- [ ] Courts played per player (aggregated from match history).
-- [ ] Average wait time per player (from dispatch timestamps).
-- [ ] `.xlsx` export generated entirely client-side (offline-capable) with no external service.
-- [ ] Export includes per-player stats and match history rows, downloaded as a file.
-- [ ] Vitest unit tests cover the recap aggregation and `.xlsx` serialization logic.
+- [x] Courts played per player (aggregated from match history).
+- [x] Average wait time per player (from dispatch timestamps).
+- [x] `.xlsx` export generated entirely client-side (offline-capable) with no external service.
+- [x] Export includes per-player stats and match history rows, downloaded as a file.
+- [x] Vitest unit tests cover the recap aggregation and `.xlsx` serialization logic.
 
 ## Comments
 
