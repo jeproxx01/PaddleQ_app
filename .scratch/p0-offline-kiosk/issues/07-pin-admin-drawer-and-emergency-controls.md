@@ -4,7 +4,7 @@
 
 **Blocked by:** 02: Court Grid Board with Live Elapsed Timers and 20-Minute Alert, 03: Multi-Entry Queueing and Visual Paddle Rack, 06: Fast Numeric Scorekeeper with Game Modes and Post-Match Choice
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Slide-out PIN Admin Drawer accessible via the Settings route (`/sessions/[id]/settings`), not a header lock icon.
 - [x] PIN set in Settings (default `1234`) and 4-digit keypad verification.

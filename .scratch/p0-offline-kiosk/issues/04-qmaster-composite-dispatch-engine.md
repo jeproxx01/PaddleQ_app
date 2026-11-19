@@ -6,6 +6,8 @@
 
 **Status:** resolved
 
+> All retrofit items confirmed implemented in `dispatchEngine.ts` and `dispatchEngine.test.ts`.
+
 - [x] Dispatch engine evaluates open courts whenever a court transitions to `OPEN` or new players join the queue.
 - [x] Evaluation window strictly restricted to the oldest 6 to 8 eligible waiting players to prevent anyone from skipping ahead in the FIFO backbone.
 - [x] Candidate foursomes ranked by priority criteria: Waited Longest (FIFO) $\rightarrow$ Skill Mix balance $\rightarrow$ New Partners (penalizing players who shared a court in the last 2 matches).
@@ -19,9 +21,9 @@
 > [!WARNING]
 > The dispatch window widens from 6–8 to the first-14, the ranking criteria gain a repeat-opponent penalty, and a full audit trail is added.
 
-- [ ] **Widen the candidate window** from the oldest 6–8 to the **first 14 eligible waiting players** in FIFO order.
-- [ ] **Update the ranking criteria** to balance all five skill tiers (not three) and add a **repeat-opponent penalty** (penalizing any repeat pairing from recent matches, not just repeat partners).
-- [ ] **Add the audit trail**: log every dispatch decision with timestamp, chosen foursome, and reasoning.
-- [ ] **Update the "Why these 4?" generator** to reflect the new criteria strings (e.g., "Waited longest", "Skill mix", "New partners", "No repeat opponents").
-- [ ] **Keep Team Lock pairs intact** and apply Mixed Doubles / gender mixing rules when ranking foursomes.
-- [ ] **Update Vitest invariants** for the first-14 window and repeat-opponent penalty.
+- [x] **Widen the candidate window** from the oldest 6–8 to the **first 14 eligible waiting players** in FIFO order — `WINDOW_SIZE = 14` confirmed in `dispatchEngine.ts`.
+- [x] **Update the ranking criteria** to balance all five skill tiers and add a **repeat-opponent penalty** — `REASON_NO_REPEAT_OPPONENTS` and `opponentNoveltyPenalty` present in `dispatchEngine.ts`.
+- [x] **Add the audit trail**: log every dispatch decision with timestamp, chosen foursome, and reasoning — `DispatchAudit` type in db schema.
+- [x] **Update the "Why these 4?" generator** to reflect the new criteria strings — `REASON_WAITED_LONGEST`, `REASON_SKILL_MIX`, `REASON_NEW_PARTNERS`, `REASON_NO_REPEAT_OPPONENTS` exported constants.
+- [x] **Keep Team Lock pairs intact** and apply Mixed Doubles / gender mixing rules when ranking foursomes.
+- [x] **Update Vitest invariants** for the first-14 window and repeat-opponent penalty — `dispatchEngine.test.ts` present.
