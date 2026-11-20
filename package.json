@@ -2,13 +2,16 @@
   "name": "pickleq",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "app"
+  ],
   "scripts": {
-    "dev": "npm --prefix app run dev",
-    "build": "npm --prefix app run build",
-    "start": "npm --prefix app run start",
-    "lint": "npm --prefix app run lint",
-    "typecheck": "npm --prefix app run typecheck",
-    "test": "npm --prefix app run test",
+    "dev": "npm run dev -w app",
+    "build": "npm run build -w app",
+    "start": "npm run start -w app",
+    "lint": "npm run lint -w app",
+    "typecheck": "npm run typecheck -w app",
+    "test": "npm run test -w app",
     "check": "npm run lint && npm run typecheck && npm run test",
     "prepare": "husky"
   },
