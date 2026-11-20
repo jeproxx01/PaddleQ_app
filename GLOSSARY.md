@@ -77,7 +77,7 @@ The PIN-protected organizer controls: court count, game mode, team unlocks, cour
 _Avoid_: settings panel, admin panel
 
 **Landing Page**:
-The root route (`/`) hero screen with a "Start a session →" action and a live preview showcase.
+The root route (`/`) hero screen with a "Start a session →" action, an active session resume banner with direct queue link, and a live preview showcase or local session list.
 _Avoid_: home page, splash screen
 
 **New Session Wizard**:
@@ -89,7 +89,7 @@ The pre-session staging area at `/sessions/[id]/lobby` with check-in tabs, an at
 _Avoid_: waiting room, pre-game screen
 
 **Sidebar**:
-The persistent left navigation (collapsed 64px) present across all `/sessions/[id]/*` routes.
+The persistent left navigation (collapsed 64px) present across all `/sessions/[id]/*` routes, featuring court dashboard, lobby, queue, player roster, history, tournament summary, admin settings, and an exit action back to the Landing Page.
 _Avoid_: nav rail, menu bar
 
 **Broadcast Screen**:

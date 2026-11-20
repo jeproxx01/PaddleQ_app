@@ -80,4 +80,50 @@ describe('sessionService', () => {
     expect(stored?.status).toBe('ended');
     expect(stored?.endedAt).toBeDefined();
   });
+
+  it('getCurrentSession returns the active session over ended sessions', async () => {
+    // Start session 1 and end it
+    const s1 = await startSession({ name: 'Old Session' });
+    await endSession(s1.id);
+
+    // Start session 2 (active in lobby)
+    const s2 = await startSession({ name: 'Active Session' });
+
+    const current = await getCurrentSession();
+    expect(current).toBeDefined();
+    expect(current?.id).toBe(s2.id);
+    expect(current?.name).toBe('Active Session');
+    expect(current?.status).toBe('lobby');
+  });
+
+  it('starting a new session closes previous active sessions so only one active session exists', async () => {
+    const first = await startSession({ name: 'Session 1' });
+    await transitionToLive(first.id);
+
+    // Starting a second session should auto-finalize the first
+    const second = await startSession({ name: 'Session 2' });
+
+    const firstFromDb = await db.sessions.get(first.id);
+    expect(firstFromDb?.status).toBe('ended');
+    expect(firstFromDb?.endedAt).toBeDefined();
+
+    const current = await getCurrentSession();
+    expect(current?.id).toBe(second.id);
+    expect(current?.status).toBe('lobby');
+
+    const activeList = await db.sessions.where('status').anyOf(['lobby', 'live']).toArray();
+    expect(activeList).toHaveLength(1);
+    expect(activeList[0].id).toBe(second.id);
+  });
+
+  it('retrieves all sessions ordered by startedAt for history listing', async () => {
+    await startSession({ name: 'Morning Open Play' });
+    await startSession({ name: 'Evening Open Play' });
+
+    const all = await db.sessions.toArray();
+    all.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0));
+
+    expect(all.length).toBeGreaterThanOrEqual(2);
+    expect(all[0].name).toBe('Evening Open Play');
+  });
 });

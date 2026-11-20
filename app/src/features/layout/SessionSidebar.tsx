@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Home, ListOrdered, Users, History, BarChart3, Settings, Tv } from 'lucide-react';
+import { LayoutGrid, Home, ListOrdered, Users, History, BarChart3, Settings, Tv, ArrowLeft } from 'lucide-react';
 
 interface NavItem {
   label: string;
@@ -12,7 +12,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Sessions', href: '/', icon: LayoutGrid },
+  { label: 'Courts', href: '', icon: LayoutGrid },
   { label: 'Lobby', href: '/lobby', icon: Home },
   { label: 'Queue', href: '/queue', icon: ListOrdered },
   { label: 'Players', href: '/players', icon: Users },
@@ -33,7 +33,7 @@ export function SessionSidebar({ sessionId, sessionName, status }: SessionSideba
   const base = `/sessions/${sessionId}`;
 
   const isActive = (href: string) => {
-    if (href === '/') return pathname === '/';
+    if (href === '') return pathname === base;
     return pathname === `${base}${href}`;
   };
 
@@ -54,7 +54,7 @@ export function SessionSidebar({ sessionId, sessionName, status }: SessionSideba
         return (
           <Link
             key={item.label}
-            href={item.href === '/' ? '/' : `${base}${item.href}`}
+            href={`${base}${item.href}`}
             title={item.label}
             className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all ${
               active
@@ -67,12 +67,21 @@ export function SessionSidebar({ sessionId, sessionName, status }: SessionSideba
         );
       })}
 
-      {/* Status indicator at the bottom */}
-      <div className="mt-auto flex flex-col items-center gap-1">
+      {/* Exit to All Sessions / Home */}
+      <div className="mt-auto flex flex-col items-center gap-2">
+        <Link
+          href="/"
+          title="All Sessions / Exit"
+          className="w-11 h-11 flex items-center justify-center rounded-xl text-text-secondary hover:text-white hover:bg-card-surface border border-transparent transition-all"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </Link>
+
+        {/* Status indicator at the bottom */}
         {sessionName && (
           <span
-            title={sessionName}
-            className="w-2 h-2 rounded-full animate-pulse"
+            title={`${sessionName} (${status})`}
+            className="w-2.5 h-2.5 rounded-full animate-pulse"
             style={{ background: status === 'live' ? '#ccff00' : '#ff8a00' }}
           />
         )}

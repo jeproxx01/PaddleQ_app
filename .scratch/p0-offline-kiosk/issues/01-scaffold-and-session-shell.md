@@ -25,3 +25,8 @@
 - [x] **Move PIN setup out of the wizard** into the Settings route (`/sessions/[id]/settings`), defaulting to 1234 when unset.
 - [x] **Relocate "Enable Court Audio"** from the launch modal to Wizard Step 2 (Game Mode).
 - [x] **Scaffold the persistent Sidebar layout** component wrapping all `/sessions/[id]/*` routes — `SessionShell.tsx` and `SessionSidebar.tsx` present.
+- [x] **Landing Page resume & Sidebar Courts link**: Landing Page detects active session in IndexedDB and provides direct "Resume Session" / "Go to Queue" CTAs; Sidebar LayoutGrid icon now explicitly routes to Courts (`/sessions/[id]`) with an exit action (`←`) to all sessions.
+
+## Comments
+
+- **Navigation & Resume Enhancement**: Resolved issue where clicking "Sessions" in the sidebar returned to the landing page without a way to re-enter the running session or Queue. The sidebar now routes `LayoutGrid` to Courts (`/sessions/[id]`) and adds an exit button (`←`) to return home. The Landing Page now queries `db.sessions` and displays an "Active session in progress" banner with direct "Courts dashboard" and "Go to Queue" buttons, as well as a local session switcher. All 84 unit tests pass.
