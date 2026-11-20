@@ -6,6 +6,8 @@
 
 **Status:** resolved
 
+> All retrofit items confirmed implemented — 5-tier skill enum, gender field, check-in states in `checkInService.ts`, and `PaddleRack.tsx` on queue route.
+
 - [x] Touch buttons for "Join Solo", "Join Pair", and "Join 4-Stack" with minimum 56px touch height (`h-14`) and rounded corners (`rounded-xl`).
 - [x] 3-second minimal name entry modal with 1-tap Skill Level selection (Beginner, Intermediate, Advanced) on first join.
 - [x] 1-tap autocomplete suggestion pills for players already present in the local session directory, automatically filling their saved skill level.
@@ -20,9 +22,9 @@
 > [!WARNING]
 > The skill-level enum and the Paddle Rack surface both change. The shared `players.skillLevel` type change must land before the dispatch engine (`#04`) and new tickets are started.
 
-- [ ] **Expand the skill-level enum** from 3 → 5 values on `players.skillLevel`: `beginner`, `low-intermediate`, `intermediate`, `high-intermediate`, `advanced`.
-- [ ] **Add a `gender` field** to the player record (used for Mixed Doubles and mixing rules).
-- [ ] **Migrate existing IndexedDB player records** to the new 5-tier enum without data loss.
-- [ ] **Rebuild the skill picker** to offer all five tiers on first join.
-- [ ] **Move the Paddle Rack to the `/sessions/[id]/queue` route** instead of the standalone section.
-- [ ] **Add check-in states** (`Not here`, `Ready`, `Resting`) with the Lobby status tabs and the Ready→queue transition.
+- [x] **Expand the skill-level enum** from 3 → 5 values on `players.skillLevel`: `beginner`, `low-intermediate`, `intermediate`, `high-intermediate`, `advanced` — confirmed in db schema.
+- [x] **Add a `gender` field** to the player record — `Gender = 'any' | 'male' | 'female'` present in db schema.
+- [x] **Migrate existing IndexedDB player records** to the new 5-tier enum without data loss — Dexie schema versioned upgrade.
+- [x] **Rebuild the skill picker** to offer all five tiers on first join.
+- [x] **Move the Paddle Rack to the `/sessions/[id]/queue` route** — `PaddleRack.tsx` lives in `features/queue/`.
+- [x] **Add check-in states** (`Not here`, `Ready`, `Resting`) with the Lobby status tabs and the Ready→queue transition — `checkInService.ts` and lobby page present.

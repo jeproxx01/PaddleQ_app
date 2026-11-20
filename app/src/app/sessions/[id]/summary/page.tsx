@@ -1,18 +1,22 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { db, type Session, type TournamentTeam, type Player } from '@/db/db';
+import { db, type Session, type TournamentTeam, type Court } from '@/db/db';
 import { useSessionId } from '@/features/layout/SessionContext';
 import { getTournamentLeaderboard } from '@/features/tournament/tournamentService';
-import { Trophy, Medal, Award, Download, ArrowLeft, BarChart3, Users } from 'lucide-react';
+import { buildSessionRecap, formatAvgWait, formatDuration, type PlayerRecapRow, type MatchHistoryRow } from '@/features/analytics/recapService';
+import { exportSessionXlsx } from '@/features/analytics/xlsxExport';
+import { Trophy, Medal, Award, Download, ArrowLeft, BarChart3, Users, Clock, TableIcon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SummaryPage() {
   const sessionId = useSessionId();
   const [session, setSession] = useState<Session | null>(null);
   const [teams, setTeams] = useState<TournamentTeam[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
+  const [playerRows, setPlayerRows] = useState<PlayerRecapRow[]>([]);
+  const [matchRows, setMatchRows] = useState<MatchHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const loadData = useCallback(async () => {
     const s = await db.sessions.get(sessionId);
@@ -21,14 +25,23 @@ export default function SummaryPage() {
     if (s?.gameMode === 'winner-takes-all-round-robin') {
       const leaderboard = await getTournamentLeaderboard(sessionId);
       setTeams(leaderboard);
-    } else {
-      const allPlayers = await db.players.toArray();
-      setPlayers(
-        allPlayers
-          .filter((p) => p.gamesPlayed > 0)
-          .sort((a, b) => b.wins - a.wins || a.losses - b.losses)
-      );
     }
+
+    // Always load the full recap (open play + winner-vs-loser-pools show player stats)
+    const [allPlayers, allMatches, allSessionPlayers, allCourts] = await Promise.all([
+      db.players.toArray(),
+      db.matches.where('sessionId').equals(sessionId).toArray(),
+      db.sessionPlayers.where('sessionId').equals(sessionId).toArray(),
+      db.courts.where('sessionId').equals(sessionId).toArray(),
+    ]);
+
+    const courtNumberById = new Map<string, number>(
+      allCourts.map((c: Court) => [c.id, c.courtNumber])
+    );
+
+    const recap = buildSessionRecap(allPlayers, allMatches, allSessionPlayers, courtNumberById);
+    setPlayerRows(recap.playerRows.filter((r) => r.gamesPlayed > 0));
+    setMatchRows(recap.matchRows);
     setLoading(false);
   }, [sessionId]);
 
@@ -39,35 +52,19 @@ export default function SummaryPage() {
     return () => clearTimeout(id);
   }, [loadData]);
 
+  const handleExportXlsx = async () => {
+    if (!session) return;
+    setExporting(true);
+    try {
+      await exportSessionXlsx(session.name, playerRows, matchRows);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   if (loading || !session) {
     return <div className="p-8 text-text-secondary">Loading session summary…</div>;
   }
-
-  const exportCsv = () => {
-    let csv = '';
-    if (session.gameMode === 'winner-takes-all-round-robin') {
-      csv = 'Rank,Team,Wins,Losses,TotalPoints,PointsConceded,Diff\n';
-      teams.forEach((t, i) => {
-        const diff = t.totalPoints - t.pointsConceded;
-        csv += `${i + 1},"${t.name}",${t.wins},${t.losses},${t.totalPoints},${t.pointsConceded},${diff}\n`;
-      });
-    } else {
-      csv = 'Player,SkillLevel,GamesPlayed,Wins,Losses,WinRate\n';
-      players.forEach((p) => {
-        const rate = p.gamesPlayed ? Math.round((p.wins / p.gamesPlayed) * 100) : 0;
-        csv += `"${p.name}",${p.skillLevel},${p.gamesPlayed},${p.wins},${p.losses},${rate}%\n`;
-      });
-    }
-
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `${session.name.replace(/\s+/g, '_')}_summary.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const isTournament = session.gameMode === 'winner-takes-all-round-robin';
 
@@ -84,18 +81,19 @@ export default function SummaryPage() {
           </Link>
           <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-volt" />
-            Session Summary & Recap
+            Session Summary &amp; Recap
           </h1>
           <p className="text-sm text-text-secondary mt-1">{session.name}</p>
         </div>
 
         <button
           type="button"
-          onClick={exportCsv}
-          className="h-11 px-4 rounded-xl bg-obsidian-dark hover:bg-card-border border border-card-border hover:border-volt/50 text-white font-bold text-xs flex items-center gap-2 transition-all self-start sm:self-auto"
+          onClick={() => void handleExportXlsx()}
+          disabled={exporting || playerRows.length === 0}
+          className="h-11 px-4 rounded-xl bg-obsidian-dark hover:bg-card-border border border-card-border hover:border-volt/50 text-white font-bold text-xs flex items-center gap-2 transition-all self-start sm:self-auto disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Download className="w-4 h-4 text-volt" />
-          Export Standings (.CSV)
+          {exporting ? 'Exporting…' : 'Export Recap (.xlsx)'}
         </button>
       </div>
 
@@ -125,7 +123,7 @@ export default function SummaryPage() {
                 <Trophy className="w-8 h-8" />
               </span>
               <span className="text-xs font-mono font-black text-volt uppercase tracking-wider">
-                1st Place • Prize Winner
+                1st Place · Prize Winner
               </span>
               <h3 className="text-lg font-black text-white mt-1">{teams[0]?.name}</h3>
               <p className="text-2xl font-mono font-black text-volt mt-2">
@@ -150,14 +148,13 @@ export default function SummaryPage() {
         </div>
       )}
 
-      {/* Standings Table */}
-      <div className="rounded-2xl bg-card-surface border border-card-border p-5">
-        <h2 className="text-base font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-          {isTournament ? <Award className="w-5 h-5 text-cyan" /> : <Users className="w-5 h-5 text-cyan" />}
-          {isTournament ? 'Complete Tournament Standings' : 'Player Win / Loss Performance'}
-        </h2>
-
-        {isTournament ? (
+      {/* Tournament Standings Table */}
+      {isTournament && teams.length > 0 && (
+        <div className="rounded-2xl bg-card-surface border border-card-border p-5">
+          <h2 className="text-base font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Award className="w-5 h-5 text-cyan" />
+            Complete Tournament Standings
+          </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
@@ -193,46 +190,95 @@ export default function SummaryPage() {
               </tbody>
             </table>
           </div>
-        ) : (
+        </div>
+      )}
+
+      {/* Player Stats Table (all modes) */}
+      <div className="rounded-2xl bg-card-surface border border-card-border p-5">
+        <h2 className="text-base font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Users className="w-5 h-5 text-cyan" />
+          Player Performance
+        </h2>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-card-border/60 text-xs text-text-secondary uppercase">
+                <th className="py-2.5 px-3">Player</th>
+                <th className="py-2.5 px-3 text-center">Played</th>
+                <th className="py-2.5 px-3 text-center">Wins</th>
+                <th className="py-2.5 px-3 text-center">Losses</th>
+                <th className="py-2.5 px-3 text-center">Win Rate</th>
+                <th className="py-2.5 px-3 text-center">Courts</th>
+                <th className="py-2.5 px-3 text-right flex items-center justify-end gap-1">
+                  <Clock className="w-3 h-3" /> Avg Wait
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-card-border/40 font-mono">
+              {playerRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-text-secondary">
+                    No matches played yet in this session.
+                  </td>
+                </tr>
+              ) : (
+                playerRows.map((r) => {
+                  const rate = r.gamesPlayed ? Math.round((r.wins / r.gamesPlayed) * 100) : 0;
+                  return (
+                    <tr key={r.playerId} className="text-text-secondary hover:text-white transition-colors">
+                      <td className="py-3 px-3 font-sans font-medium text-white">{r.name}</td>
+                      <td className="py-3 px-3 text-center">{r.gamesPlayed}</td>
+                      <td className="py-3 px-3 text-center text-emerald-400 font-bold">{r.wins}</td>
+                      <td className="py-3 px-3 text-center text-rose-400">{r.losses}</td>
+                      <td className="py-3 px-3 text-center font-bold text-volt">{rate}%</td>
+                      <td className="py-3 px-3 text-center">{r.courtsPlayed}</td>
+                      <td className="py-3 px-3 text-right text-xs">{formatAvgWait(r.avgWaitTimeMs)}</td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Match History Table */}
+      {matchRows.length > 0 && (
+        <div className="rounded-2xl bg-card-surface border border-card-border p-5">
+          <h2 className="text-base font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+            <TableIcon className="w-5 h-5 text-cyan" />
+            Match History
+          </h2>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-card-border/60 text-xs text-text-secondary uppercase">
-                  <th className="py-2.5 px-3">Player</th>
-                  <th className="py-2.5 px-3">Skill</th>
-                  <th className="py-2.5 px-3 text-center">Played</th>
-                  <th className="py-2.5 px-3 text-center">Wins</th>
-                  <th className="py-2.5 px-3 text-center">Losses</th>
-                  <th className="py-2.5 px-3 text-right">Win Rate</th>
+                  <th className="py-2.5 px-3">Court</th>
+                  <th className="py-2.5 px-3">Team 1</th>
+                  <th className="py-2.5 px-3">Team 2</th>
+                  <th className="py-2.5 px-3 text-center">Score</th>
+                  <th className="py-2.5 px-3">Winner</th>
+                  <th className="py-2.5 px-3 text-right">Duration</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-card-border/40 font-mono">
-                {players.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-6 text-center text-text-secondary">
-                      No matches played yet in this session.
-                    </td>
+              <tbody className="divide-y divide-card-border/40 font-mono text-xs">
+                {matchRows.map((r) => (
+                  <tr key={r.matchId} className="text-text-secondary hover:text-white transition-colors">
+                    <td className="py-2.5 px-3 text-cyan font-bold">#{r.courtNumber}</td>
+                    <td className="py-2.5 px-3 font-sans">{r.team1}</td>
+                    <td className="py-2.5 px-3 font-sans">{r.team2}</td>
+                    <td className="py-2.5 px-3 text-center font-bold text-white">{r.score}</td>
+                    <td className="py-2.5 px-3 font-sans text-volt font-medium">{r.winner}</td>
+                    <td className="py-2.5 px-3 text-right">{formatDuration(r.durationMs)}</td>
                   </tr>
-                ) : (
-                  players.map((p) => {
-                    const rate = p.gamesPlayed ? Math.round((p.wins / p.gamesPlayed) * 100) : 0;
-                    return (
-                      <tr key={p.id} className="text-text-secondary hover:text-white transition-colors">
-                        <td className="py-3 px-3 font-sans font-medium text-white">{p.name}</td>
-                        <td className="py-3 px-3 uppercase text-xs">{p.skillLevel}</td>
-                        <td className="py-3 px-3 text-center">{p.gamesPlayed}</td>
-                        <td className="py-3 px-3 text-center text-emerald-400 font-bold">{p.wins}</td>
-                        <td className="py-3 px-3 text-center text-rose-400">{p.losses}</td>
-                        <td className="py-3 px-3 text-right font-bold text-volt">{rate}%</td>
-                      </tr>
-                    );
-                  })
-                )}
+                ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

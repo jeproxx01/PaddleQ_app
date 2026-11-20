@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Scaffold & Session Shell, 04: QMaster Composite Dispatch Engine, 06: Fast Numeric Scorekeeper with Game Modes
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `winner-takes-all-round-robin` value wired through `sessions.gameMode` and selectable in Wizard and Settings.
 - [x] Seeded High-Low Balanced Pairing Algorithm: sorts players by skill level descending and pairs top-half seeds with bottom-half players, strictly preventing Advanced + Advanced teams.
