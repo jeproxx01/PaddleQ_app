@@ -4,7 +4,7 @@
 
 **Blocked by:** 07: PIN Admin Drawer with Mid-Session Adjustments and Emergency Controls, 10: Winner Takes All Round Robin Tournament Mode
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Tournament fixtures panel in PIN Admin Drawer showing round, matchup, court assignment, and status.
 - [x] Manual fixture score override / walkover resolution in Admin Drawer.

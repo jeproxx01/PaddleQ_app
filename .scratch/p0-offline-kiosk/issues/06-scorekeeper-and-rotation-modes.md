@@ -8,7 +8,7 @@ Completing a match marks the court as `OPEN`, immediately triggering the next au
 
 **Blocked by:** 04: QMaster Composite Dispatch Engine and Explainable Assignment
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] "Record Score" touch action on active Court cards opens a full-screen Big-Pad numeric keypad.
 - [x] 1-tap toggle to designate the winning pair/team.

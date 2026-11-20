@@ -16,4 +16,4 @@
 
 ## Comments
 
-- Per-player Win/Loss + games-played recap and CSV export landed on the Summary route as a partial start of this ticket (built alongside #15's tournament summary). Remaining: courts played, average wait time, and `.xlsx` export.
+- Complete: full recap (courts played, average wait time), `.xlsx` export via SheetJS, and Vitest coverage landed in `features/analytics/` (recapService + xlsxExport) and wired into the Summary route.

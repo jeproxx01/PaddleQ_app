@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Scaffold & Session Shell, 04: QMaster Composite Dispatch Engine, 06: Fast Numeric Scorekeeper with Game Modes
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] `winner-vs-loser-pools` value wired through `sessions.gameMode` and selectable in the Wizard and Settings drawer.
 - [x] Dual-pool queueing: on match completion, winning pair remains partnered and re-enters queue with `pool: 'winners'`.

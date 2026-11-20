@@ -6,8 +6,6 @@
 
 **Status:** ready-for-agent
 
-**Status:** resolved
-
 - [x] Web Speech API adapter triggers offline text-to-speech audio upon court dispatch using `window.speechSynthesis`.
 - [x] Speech utterance properly formats the phrase: *"Court [X] is ready: [Player 1], [Player 2], [Player 3], and [Player 4]"* — `formatCourtCallText()` in `audio.ts`.
 - [x] Full-screen visual court call modal flashes with large Court number, player names, and a 10-second auto-dismiss progress bar — `CourtCallModal.tsx` present.
