@@ -4,7 +4,7 @@
 
 **Blocked by:** 02: Court Grid Board with Live Elapsed Timers and 20-Minute Alert, 03: Multi-Entry Queueing and Visual Paddle Rack, 06: Fast Numeric Scorekeeper with Game Modes and Post-Match Choice
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Slide-out PIN Admin Drawer accessible via the Settings route (`/sessions/[id]/settings`), not a header lock icon.
 - [x] PIN set in Settings (default `1234`) and 4-digit keypad verification.
@@ -13,9 +13,9 @@
 - [x] Manual Team Lock unlock list: allows organizer to dissolve partner locks back into solo queue entries.
 - [x] Emergency Queue Controls: 1-tap "Remove Player" to evict no-shows and "Disband Stack" to unblock stalled groups.
 - [x] Player skill level override: allows organizer to adjust a player's tier (five tiers) in the session directory.
-- [ ] Court groups: define and label court groups (e.g., "Beginner courts").
-- [ ] Session presets: save/load common configurations (court count, game mode, target score).
-- [ ] Favorites / shortcuts: quick actions pinned to the drawer.
-- [ ] Dispatch audit trail viewer: list logged dispatch decisions with timestamp and reasoning.
+- [x] Court groups: define and label court groups (e.g., "Beginner courts").
+- [x] Session presets: save/load common configurations (court count, game mode, target score).
+- [x] Favorites / shortcuts: quick actions pinned to the drawer.
+- [x] Dispatch audit trail viewer: list logged dispatch decisions with timestamp and reasoning.
 - [x] "Load Demo Session" seed button: instantly populates 4 active courts and 12 mock players with varying skill levels for verification.
 - [x] "End Session" action with confirmation prompt, finalizing records and clearing active kiosk state.

@@ -11,6 +11,15 @@ import {
   Sparkles,
   Users,
   Link2,
+  Volume2,
+  VolumeX,
+  Bookmark,
+  Layers,
+  History,
+  Play,
+  Plus,
+  Minus,
+  Trash2,
 } from 'lucide-react';
 import { db, type Court, type Player, type Session, type TournamentFixture, type TournamentTeam } from '@/db/db';
 import { useSessionId } from '@/features/layout/SessionContext';
@@ -34,7 +43,26 @@ import {
   unlockTeamLock,
   overrideSkillLevel,
   seedDemoPlayers,
+  updateCourtGroup,
+  getSessionPresets,
+  saveCustomPreset,
+  deleteCustomPreset,
+  applySessionPreset,
+  getDispatchAuditRecords,
+  type SessionPreset,
+  type DispatchAuditRecord,
 } from '@/features/admin/adminService';
+import {
+  isAudioMuted,
+  setAudioMuted,
+  getSelectedVoiceURI,
+  setSelectedVoiceURI,
+  getAvailableVoices,
+  playDispatchCue,
+  playWinCue,
+  playTimeUpCue,
+  speakCourtCall,
+} from '@/shared/audio';
 
 export default function SettingsPage() {
   const sessionId = useSessionId();
@@ -55,6 +83,15 @@ export default function SettingsPage() {
   const [teams, setTeams] = useState<TournamentTeam[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
 
+  // Ticket 05 & 07 state
+  const [muted, setMuted] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [presets, setPresets] = useState<SessionPreset[]>([]);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [auditRecords, setAuditRecords] = useState<DispatchAuditRecord[]>([]);
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
+
   const load = useCallback(async () => {
     const s = await db.sessions.get(sessionId);
     setSession(s ?? null);
@@ -64,7 +101,15 @@ export default function SettingsPage() {
     setFixtures(allFixtures.sort((a, b) => a.round - b.round));
     const allTeams = await db.tournamentTeams.where('sessionId').equals(sessionId).toArray();
     setTeams(allTeams);
-    setCourts(await db.courts.toArray());
+    const sessionCourts = await db.courts.where('sessionId').equals(sessionId).sortBy('courtNumber');
+    setCourts(sessionCourts);
+
+    // Audio & admin extras
+    setMuted(isAudioMuted());
+    setSelectedVoice(getSelectedVoiceURI() || '');
+    setPresets(getSessionPresets());
+    const audits = await getDispatchAuditRecords(sessionId);
+    setAuditRecords(audits);
   }, [sessionId]);
 
   useEffect(() => {
@@ -73,6 +118,18 @@ export default function SettingsPage() {
     }, 0);
     return () => clearTimeout(id);
   }, [load]);
+
+  // Load browser speech voices
+  useEffect(() => {
+    const updateVoices = () => {
+      const v = getAvailableVoices();
+      setVoices(v);
+    };
+    updateVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = updateVoices;
+    }
+  }, []);
 
   // Auto-verify once 4 digits are entered.
   useEffect(() => {
@@ -94,7 +151,7 @@ export default function SettingsPage() {
 
   const lockedPairs = stacks.filter((s) => s.teamLockId);
   const waitingPlayers = stacks.flatMap((s) => s.players);
-  const hasStarted = fixtures.some((f) => f.status !== 'scheduled');
+  const hasStarted = fixtures.some((f) => f.status !== 'completed' && f.status !== 'scheduled');
 
   const pressDigit = (d: string) => {
     if (pinEntry.length < 4) setPinEntry((p) => p + d);
@@ -115,10 +172,54 @@ export default function SettingsPage() {
     router.push('/');
   };
 
+  const toggleMute = () => {
+    const next = !muted;
+    setAudioMuted(next);
+    setMuted(next);
+  };
+
+  const handleVoiceChange = (uri: string) => {
+    setSelectedVoice(uri);
+    setSelectedVoiceURI(uri || null);
+  };
+
+  const handleTestAnnouncement = () => {
+    playDispatchCue();
+    speakCourtCall('Court 1 is ready: Alex, Dave, Sarah, and Lisa');
+  };
+
+  const handleApplyPreset = async (preset: SessionPreset) => {
+    await applySessionPreset(sessionId, preset);
+    await load();
+  };
+
+  const handleSaveCurrentAsPreset = () => {
+    if (!newPresetName.trim()) return;
+    saveCustomPreset({
+      name: newPresetName.trim(),
+      courtCount: session.courtCount,
+      gameMode: session.gameMode,
+      recordScores: session.recordScores,
+      targetScore: session.targetScore,
+    });
+    setNewPresetName('');
+    setPresets(getSessionPresets());
+  };
+
+  const handleDeletePreset = (id: string) => {
+    deleteCustomPreset(id);
+    setPresets(getSessionPresets());
+  };
+
+  const handleSetCourtGroup = async (courtId: string, groupLabel: string) => {
+    await updateCourtGroup(courtId, groupLabel || undefined);
+    await load();
+  };
+
   return (
-    <div className="p-6 max-w-2xl mx-auto">
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-        <Shield className="w-6 h-6 text-volt" /> Settings
+        <Shield className="w-6 h-6 text-volt" /> Organizer Settings & Admin Drawer
       </h1>
 
       {!unlocked ? (
@@ -172,23 +273,197 @@ export default function SettingsPage() {
           </div>
         </div>
       ) : (
-        /* ---- Controls ---- */
-        <div className="mt-6 space-y-6">
+        /* ---- Unlocked Drawer Controls ---- */
+        <div className="space-y-6">
           <div className="flex items-center justify-between p-3 rounded-xl bg-volt/10 border border-volt/30">
             <span className="flex items-center gap-2 text-volt font-semibold">
-              <Unlock className="w-4 h-4" /> Unlocked
+              <Unlock className="w-4 h-4" /> Admin Drawer Unlocked
             </span>
             <button
               type="button"
               onClick={() => setUnlocked(false)}
               className="text-xs text-text-secondary hover:text-white"
             >
-              Lock again
+              Lock drawer
             </button>
           </div>
 
+          {/* Quick Shortcuts */}
+          <Section title="Quick Shortcuts" icon={Sparkles}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <button
+                type="button"
+                onClick={() => updateCourtCount(sessionId, Math.min(12, session.courtCount + 1)).then(load)}
+                className="p-2.5 rounded-xl bg-obsidian-dark border border-card-border hover:border-volt/50 text-xs font-semibold flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5 text-volt" /> +1 Court
+              </button>
+              <button
+                type="button"
+                onClick={() => updateCourtCount(sessionId, Math.max(1, session.courtCount - 1)).then(load)}
+                className="p-2.5 rounded-xl bg-obsidian-dark border border-card-border hover:border-volt/50 text-xs font-semibold flex items-center justify-center gap-1.5"
+              >
+                <Minus className="w-3.5 h-3.5 text-volt" /> -1 Court
+              </button>
+              <button
+                type="button"
+                onClick={toggleMute}
+                className="p-2.5 rounded-xl bg-obsidian-dark border border-card-border hover:border-volt/50 text-xs font-semibold flex items-center justify-center gap-1.5"
+              >
+                {muted ? (
+                  <>
+                    <Volume2 className="w-3.5 h-3.5 text-emerald-400" /> Unmute
+                  </>
+                ) : (
+                  <>
+                    <VolumeX className="w-3.5 h-3.5 text-amber-400" /> Mute Kiosk
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => seedDemoPlayers(sessionId).then(load)}
+                className="p-2.5 rounded-xl bg-obsidian-dark border border-card-border hover:border-volt/50 text-xs font-semibold flex items-center justify-center gap-1.5"
+              >
+                <Users className="w-3.5 h-3.5 text-cyan" /> Demo Data
+              </button>
+            </div>
+          </Section>
+
+          {/* Audio Controls & Voice Picker (Ticket #05) */}
+          <Section title="Audio Caller & Sound Controls" icon={Volume2}>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-3 rounded-xl bg-obsidian-dark border border-card-border">
+                <div>
+                  <p className="text-sm font-semibold text-white">Kiosk Audio Announcements</p>
+                  <p className="text-xs text-text-secondary">
+                    Mute this tablet while leaving the venue TV broadcast (`/show`) sound active.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleMute}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${
+                    muted
+                      ? 'bg-amber-950/40 border-amber-500/50 text-amber-300'
+                      : 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
+                  }`}
+                >
+                  {muted ? 'MUTED' : 'ACTIVE'}
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-text-secondary mb-1.5 block">
+                  Announcement Voice
+                </label>
+                <select
+                  value={selectedVoice}
+                  onChange={(e) => handleVoiceChange(e.target.value)}
+                  className="w-full h-11 rounded-xl bg-obsidian-dark border border-card-border px-3 text-sm text-white focus:outline-none focus:border-volt"
+                >
+                  <option value="">Default System Voice</option>
+                  {voices.map((v) => (
+                    <option key={v.voiceURI} value={v.voiceURI}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleTestAnnouncement}
+                  className="px-3 py-2 rounded-xl bg-obsidian-dark border border-card-border hover:border-volt/50 text-xs font-medium text-white flex items-center gap-1.5"
+                >
+                  <Play className="w-3.5 h-3.5 text-volt" /> Test Callout
+                </button>
+                <button
+                  type="button"
+                  onClick={() => playDispatchCue()}
+                  className="px-3 py-2 rounded-xl bg-obsidian-dark border border-card-border hover:border-volt/50 text-xs font-medium text-text-secondary hover:text-white"
+                >
+                  Dispatch Chime
+                </button>
+                <button
+                  type="button"
+                  onClick={() => playWinCue()}
+                  className="px-3 py-2 rounded-xl bg-obsidian-dark border border-card-border hover:border-volt/50 text-xs font-medium text-text-secondary hover:text-white"
+                >
+                  Win Fanfare
+                </button>
+                <button
+                  type="button"
+                  onClick={() => playTimeUpCue()}
+                  className="px-3 py-2 rounded-xl bg-obsidian-dark border border-card-border hover:border-volt/50 text-xs font-medium text-text-secondary hover:text-white"
+                >
+                  Time-Up Horn
+                </button>
+              </div>
+            </div>
+          </Section>
+
+          {/* Session Presets (Ticket #07) */}
+          <Section title="Session Presets" icon={Bookmark}>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {presets.map((p) => (
+                  <div
+                    key={p.id}
+                    className="p-3 rounded-xl bg-obsidian-dark border border-card-border flex flex-col justify-between"
+                  >
+                    <div>
+                      <p className="text-xs font-bold text-white">{p.name}</p>
+                      <p className="text-[11px] text-text-secondary mt-1">
+                        {p.courtCount} courts • {GAME_MODE_LABELS[p.gameMode]}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-card-border/40">
+                      <button
+                        type="button"
+                        onClick={() => handleApplyPreset(p)}
+                        className="flex-1 py-1 rounded bg-volt/10 border border-volt/30 text-volt text-[11px] font-semibold hover:bg-volt/20"
+                      >
+                        Apply
+                      </button>
+                      {!p.isBuiltIn && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePreset(p.id)}
+                          className="p-1 rounded text-text-secondary hover:text-red-400"
+                          title="Delete preset"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-card-border/40">
+                <input
+                  type="text"
+                  placeholder="New preset name (e.g. Wednesday League)"
+                  value={newPresetName}
+                  onChange={(e) => setNewPresetName(e.target.value)}
+                  className="flex-1 h-10 rounded-xl bg-obsidian-dark border border-card-border px-3 text-xs text-white focus:outline-none focus:border-volt"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveCurrentAsPreset}
+                  disabled={!newPresetName.trim()}
+                  className="h-10 px-3 rounded-xl bg-volt text-obsidian-dark font-bold text-xs hover:bg-volt-hover disabled:opacity-40"
+                >
+                  Save Preset
+                </button>
+              </div>
+            </div>
+          </Section>
+
           {/* Court count */}
-          <Section title="Court count">
+          <Section title="Court count" icon={Layers}>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -214,8 +489,41 @@ export default function SettingsPage() {
             </div>
           </Section>
 
+          {/* Court Groups (Ticket #07) */}
+          <Section title="Court Groups & Labels" icon={Layers}>
+            <div className="space-y-2">
+              <p className="text-xs text-text-secondary">
+                Assign group labels to courts (e.g., &quot;Beginner&quot;, &quot;Advanced&quot;, &quot;Challenge Court&quot;).
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                {courts.map((court) => (
+                  <div
+                    key={court.id}
+                    className="p-2.5 rounded-xl bg-obsidian-dark border border-card-border flex items-center justify-between gap-2"
+                  >
+                    <span className="font-mono text-xs font-bold text-volt">
+                      Court {court.courtNumber}
+                    </span>
+                    <input
+                      type="text"
+                      defaultValue={court.courtGroupId || ''}
+                      placeholder="No group"
+                      onBlur={(e) => handleSetCourtGroup(court.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSetCourtGroup(court.id, (e.target as HTMLInputElement).value);
+                        }
+                      }}
+                      className="w-32 h-8 rounded bg-card-surface border border-card-border px-2 text-xs text-white focus:outline-none focus:border-volt"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Section>
+
           {/* Game mode */}
-          <Section title="Game mode">
+          <Section title="Game mode" icon={Layers}>
             <div className="grid grid-cols-2 gap-2">
               {GAME_MODES_ORDERED.map((mode) => (
                 <button
@@ -238,7 +546,7 @@ export default function SettingsPage() {
 
           {/* Tournament Management */}
           {session.gameMode === 'winner-takes-all-round-robin' && (
-            <Section title="Tournament Management">
+            <Section title="Tournament Management" icon={Sparkles}>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-text-secondary">
@@ -333,8 +641,69 @@ export default function SettingsPage() {
             </Section>
           )}
 
+          {/* Dispatch Audit Trail Viewer (Ticket #07) */}
+          <Section title="Dispatch Decision Audit Trail" icon={History}>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-text-secondary">
+                  Logged fairness decisions ({auditRecords.length} records)
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setShowAuditTrail((v) => !v)}
+                  className="text-xs text-volt font-semibold hover:underline"
+                >
+                  {showAuditTrail ? 'Hide Log' : 'View Log'}
+                </button>
+              </div>
+
+              {showAuditTrail && (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {auditRecords.length === 0 ? (
+                    <p className="text-xs text-text-secondary">No dispatch decisions logged yet.</p>
+                  ) : (
+                    auditRecords.map((record) => (
+                      <div
+                        key={record.matchId}
+                        className="p-2.5 rounded-xl bg-obsidian-dark border border-card-border text-xs space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-volt font-bold">
+                            Court {record.courtNumber}
+                          </span>
+                          <span className="text-[10px] text-text-secondary font-mono">
+                            {new Date(record.timestamp).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-white font-medium">
+                          {record.playerNames.join(', ')}
+                        </p>
+                        {record.reasons.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {record.reasons.map((r, i) => (
+                              <span
+                                key={i}
+                                className="px-1.5 py-0.5 rounded text-[10px] bg-volt/10 text-volt border border-volt/20"
+                              >
+                                {r}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          </Section>
+
           {/* Team locks */}
-          <Section title="Team locks">
+          <Section title="Team locks" icon={Link2}>
             {lockedPairs.length === 0 ? (
               <p className="text-sm text-text-secondary">No locked pairs.</p>
             ) : (
@@ -362,7 +731,7 @@ export default function SettingsPage() {
           </Section>
 
           {/* Queue controls */}
-          <Section title="Waiting players">
+          <Section title="Waiting players" icon={Users}>
             {waitingPlayers.length === 0 ? (
               <p className="text-sm text-text-secondary">Queue is empty.</p>
             ) : (
@@ -399,7 +768,7 @@ export default function SettingsPage() {
           </Section>
 
           {/* Skill override */}
-          <Section title="Skill override">
+          <Section title="Skill override" icon={Users}>
             <select
               value={selectedPlayerId}
               onChange={(e) => setSelectedPlayerId(e.target.value)}
@@ -430,7 +799,7 @@ export default function SettingsPage() {
           </Section>
 
           {/* Change PIN */}
-          <Section title="Change PIN">
+          <Section title="Change PIN" icon={Lock}>
             <div className="flex items-center gap-3">
               <input
                 type="password"
@@ -452,7 +821,7 @@ export default function SettingsPage() {
           </Section>
 
           {/* Load demo */}
-          <Section title="Demo">
+          <Section title="Demo" icon={Sparkles}>
             <button
               type="button"
               onClick={() => seedDemoPlayers(sessionId).then(load)}
@@ -476,11 +845,19 @@ export default function SettingsPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
   return (
     <div className="p-4 rounded-2xl bg-card-surface border border-card-border">
       <h2 className="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-3 flex items-center gap-1.5">
-        <Users className="w-4 h-4 text-volt" />
+        {Icon ? <Icon className="w-4 h-4 text-volt" /> : <Users className="w-4 h-4 text-volt" />}
         {title}
       </h2>
       {children}

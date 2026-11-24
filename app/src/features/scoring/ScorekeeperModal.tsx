@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Check, Delete, Trophy } from 'lucide-react';
 import { type CourtWithMatch } from '../courts/courtService';
 import { recordScore } from './scoringService';
+import { playWinCue } from '@/shared/audio';
 
 interface ScorekeeperModalProps {
   court: CourtWithMatch;
@@ -64,6 +65,7 @@ export function ScorekeeperModal({ court, sessionId, onClose, onScored }: Scorek
     setError(null);
     try {
       await recordScore(sessionId, match.id, s1, s2, winningTeam);
+      playWinCue();
       await onScored();
       onClose();
     } catch (err) {
