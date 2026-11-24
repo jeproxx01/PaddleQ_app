@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { db } from '../../db/db';
 import { startSession } from '../session/sessionService';
@@ -10,12 +10,39 @@ import {
   updateGameMode,
   unlockTeamLock,
   overrideSkillLevel,
+  updateCourtGroup,
+  getSessionPresets,
+  saveCustomPreset,
+  deleteCustomPreset,
+  applySessionPreset,
+  getDispatchAuditRecords,
 } from './adminService';
+
+let testStorage: Record<string, string> = {};
+
+const mockLocalStorage = {
+  getItem: (key: string) => testStorage[key] ?? null,
+  setItem: (key: string, val: string) => {
+    testStorage[key] = val;
+  },
+  removeItem: (key: string) => {
+    delete testStorage[key];
+  },
+  clear: () => {
+    testStorage = {};
+  },
+};
 
 describe('adminService', () => {
   beforeEach(async () => {
+    testStorage = {};
+    vi.stubGlobal('localStorage', mockLocalStorage);
     await db.delete();
     await db.open();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   describe('PIN', () => {
@@ -103,6 +130,110 @@ describe('adminService', () => {
       const p = await getOrCreatePlayer('Sandbagger', 'beginner');
       await overrideSkillLevel(p.id, 'advanced');
       expect((await db.players.get(p.id))?.skillLevel).toBe('advanced');
+    });
+  });
+
+  describe('Court groups', () => {
+    it('labels a court with a group identifier', async () => {
+      const session = await startSession({ courtCount: 2 });
+      const courts = await db.courts.where('sessionId').equals(session.id).sortBy('courtNumber');
+      await updateCourtGroup(courts[0].id, 'Beginner Courts');
+      const updated = await db.courts.get(courts[0].id);
+      expect(updated?.courtGroupId).toBe('Beginner Courts');
+
+      // Clear the group
+      await updateCourtGroup(courts[0].id, undefined);
+      const cleared = await db.courts.get(courts[0].id);
+      expect(cleared?.courtGroupId).toBeUndefined();
+    });
+  });
+
+  describe('Session presets', () => {
+    it('provides built-in presets', () => {
+      const presets = getSessionPresets();
+      expect(presets.length).toBeGreaterThanOrEqual(3);
+      expect(presets.some((p) => p.name.includes('Casual Open Play'))).toBe(true);
+    });
+
+    it('saves, retrieves, and deletes custom presets', () => {
+      const custom = saveCustomPreset({
+        name: 'My Custom Night',
+        courtCount: 5,
+        gameMode: 'winner-vs-loser-pools',
+        recordScores: 'winners',
+        targetScore: 15,
+      });
+
+      let presets = getSessionPresets();
+      expect(presets.some((p) => p.id === custom.id)).toBe(true);
+
+      deleteCustomPreset(custom.id);
+      presets = getSessionPresets();
+      expect(presets.some((p) => p.id === custom.id)).toBe(false);
+    });
+
+    it('applies a preset to an active session', async () => {
+      const session = await startSession({ courtCount: 2, gameMode: 'open-play' });
+      const targetPreset = getSessionPresets()[1]; // e.g. 6 courts, winner-vs-loser
+      await applySessionPreset(session.id, targetPreset);
+
+      const updatedSession = await db.sessions.get(session.id);
+      expect(updatedSession?.gameMode).toBe(targetPreset.gameMode);
+      expect(updatedSession?.courtCount).toBe(targetPreset.courtCount);
+    });
+  });
+
+  describe('Dispatch audit trail', () => {
+    it('returns empty list when no matches exist', async () => {
+      const session = await startSession({ courtCount: 2 });
+      const records = await getDispatchAuditRecords(session.id);
+      expect(records).toEqual([]);
+    });
+
+    it('retrieves match dispatch records with reasons and player names', async () => {
+      const session = await startSession({ courtCount: 2 });
+      const p1 = await getOrCreatePlayer('Player One', 'intermediate');
+      const p2 = await getOrCreatePlayer('Player Two', 'intermediate');
+      const p3 = await getOrCreatePlayer('Player Three', 'intermediate');
+      const p4 = await getOrCreatePlayer('Player Four', 'intermediate');
+
+      const courts = await db.courts.where('sessionId').equals(session.id).sortBy('courtNumber');
+      const matchId = crypto.randomUUID();
+
+      await db.matches.add({
+        id: matchId,
+        sessionId: session.id,
+        courtId: courts[0].id,
+        gameMode: 'open-play',
+        playerIds: [p1.id, p2.id, p3.id, p4.id],
+        team1PlayerIds: [p1.id, p2.id],
+        team2PlayerIds: [p3.id, p4.id],
+        consecutiveWins: 0,
+        selectionReasons: ['Longest wait time (FIFO)', 'Balanced skill rating'],
+        mixedDoubles: false,
+        status: 'in_play',
+        startedAt: Date.now(),
+        auditTrail: {
+          timestamp: Date.now(),
+          candidatePoolSize: 4,
+          criteria: ['fifo', 'skill_balance'],
+          evaluated: [
+            {
+              playerIds: [p1.id, p2.id, p3.id, p4.id],
+              fifoScore: 0.95,
+              skillImbalance: 0.1,
+              noveltyPenalty: 0,
+            },
+          ],
+        },
+      });
+
+      const records = await getDispatchAuditRecords(session.id);
+      expect(records).toHaveLength(1);
+      expect(records[0].courtNumber).toBe(1);
+      expect(records[0].playerNames).toContain('Player One');
+      expect(records[0].reasons).toContain('Longest wait time (FIFO)');
+      expect(records[0].candidatePoolSize).toBe(4);
     });
   });
 });

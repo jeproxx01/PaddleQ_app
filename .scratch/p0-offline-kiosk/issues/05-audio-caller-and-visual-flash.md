@@ -4,7 +4,7 @@
 
 **Blocked by:** 04: QMaster Composite Dispatch Engine and Explainable Assignment
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [x] Web Speech API adapter triggers offline text-to-speech audio upon court dispatch using `window.speechSynthesis`.
 - [x] Speech utterance properly formats the phrase: *"Court [X] is ready: [Player 1], [Player 2], [Player 3], and [Player 4]"* — `formatCourtCallText()` in `audio.ts`.
@@ -12,7 +12,7 @@
 - [x] Modal can be dismissed manually before 10 seconds with a single tap on the screen.
 - [x] Graceful degradation: if speech synthesis is blocked, unavailable, or unsupported by the browser, the visual callout modal continues to flash without throwing unhandled exceptions — confirmed in `speakCourtCall()`.
 - [x] Vitest unit tests spy on `window.speechSynthesis.speak` to verify proper speech string formation and parameter formatting — `audio.test.ts` with `speakSpy` confirmed.
-- [ ] Voice picker in Settings selects among available device/AI voices for announcements.
-- [ ] Horn/bell audio cues fire on dispatch, win, and Time-Based time-up events.
-- [ ] Per-screen audio controls allow muting the Kiosk while keeping the Broadcast Screen (`/show`) audio on.
-- [ ] Time-Based auto-call triggers the same speech + visual flash pipeline at countdown zero.
+- [x] Voice picker in Settings selects among available device/AI voices for announcements.
+- [x] Horn/bell audio cues fire on dispatch, win, and Time-Based time-up events.
+- [x] Per-screen audio controls allow muting the Kiosk while keeping the Broadcast Screen (`/show`) audio on.
+- [x] Time-Based auto-call triggers the same speech + visual flash pipeline at countdown zero.
