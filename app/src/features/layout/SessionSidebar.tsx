@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutGrid, Home, ListOrdered, Users, History, BarChart3, Settings, Tv, ArrowLeft } from 'lucide-react';
+import { LayoutGrid, Home, ListOrdered, Users, History, BarChart3, Settings, Tv, ArrowLeft, QrCode } from 'lucide-react';
 
 interface NavItem {
   label: string;
@@ -16,6 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Lobby', href: '/lobby', icon: Home },
   { label: 'Queue', href: '/queue', icon: ListOrdered },
   { label: 'Players', href: '/players', icon: Users },
+  { label: 'Check-In', href: '/check-in', icon: QrCode },
   { label: 'History', href: '/history', icon: History },
   { label: 'Summary', href: '/summary', icon: BarChart3 },
   { label: 'Settings', href: '/settings', icon: Settings },
