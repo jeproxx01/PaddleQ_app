@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { User, Users, Lock, Clock, PlusCircle, MoreVertical, Play, Pencil } from 'lucide-react';
+import { User, Users, Lock, Clock, PlusCircle, MoreVertical, Play, Pencil, QrCode } from 'lucide-react';
 import { type SkillLevel } from '../../db/db';
 import { SKILL_LEVEL_ABBREV } from '../../shared/display';
 import { StackWithPlayers, computeQueueReadiness, disbandStack } from './queueService';
 import { JoinModal } from './JoinModal';
 import { StackEditModal } from './StackEditModal';
 import { ChangeStackModal } from './ChangeStackModal';
+import { QRCodeModal } from '../checkin/QRCodeModal';
 
 interface PaddleRackProps {
   sessionId: string;
@@ -21,6 +22,7 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [editStack, setEditStack] = useState<StackWithPlayers | null>(null);
   const [changeStack, setChangeStack] = useState<StackWithPlayers | null>(null);
+  const [showQrModal, setShowQrModal] = useState(false);
 
   const totalWaitingPlayers = stacks.reduce((sum, s) => sum + s.playerIds.length, 0);
   const readinessText = computeQueueReadiness(totalWaitingPlayers);
@@ -88,6 +90,16 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
 
         {/* Big Touch Action Buttons (>= 56px / h-14) */}
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowQrModal(true)}
+            className="h-14 px-4 rounded-xl bg-obsidian-dark hover:bg-card-border border border-card-border hover:border-volt/50 text-white font-bold text-sm flex items-center gap-2 transition-all active:scale-[0.98]"
+            title="Show QR Code for players to scan"
+          >
+            <QrCode className="w-4 h-4 text-volt" />
+            Check-In QR
+          </button>
+
           <button
             type="button"
             onClick={() => setModalMode('solo')}
@@ -300,6 +312,14 @@ export function PaddleRack({ sessionId, stacks, onQueueUpdated, onStartStack }: 
           currentStackId={changeStack.id}
           onClose={() => setChangeStack(null)}
           onChanged={onQueueUpdated}
+        />
+      )}
+
+      {/* QR Self Check-In Modal */}
+      {showQrModal && (
+        <QRCodeModal
+          sessionId={sessionId}
+          onClose={() => setShowQrModal(false)}
         />
       )}
     </div>
