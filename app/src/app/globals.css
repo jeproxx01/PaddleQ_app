@@ -10,6 +10,39 @@
   --color-tangerine: #ff8a00;
   --color-text-primary: #ffffff;
   --color-text-secondary: #94a3b8;
+  --animate-dispatch-enter: dispatch-enter 0.55s cubic-bezier(0.16, 1, 0.3, 1), dispatch-glow 2.4s ease-out;
+  --animate-queue-enter: queue-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dispatch-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(24px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes dispatch-glow {
+  0% {
+    box-shadow: 0 0 0 2px rgba(204, 255, 0, 0.7), 0 0 24px rgba(204, 255, 0, 0.25);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(204, 255, 0, 0), 0 0 0 rgba(204, 255, 0, 0);
+  }
+}
+
+@keyframes queue-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 :root {

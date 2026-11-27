@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { db, type Session } from '@/db/db';
 import { SessionIdContext } from './SessionContext';
 import { SessionSidebar } from './SessionSidebar';
@@ -13,6 +14,10 @@ export function SessionShell({
   children: React.ReactNode;
 }) {
   const [session, setSession] = useState<Session | null>(null);
+  const pathname = usePathname();
+
+  // The Broadcast Screen (/show) renders full-screen without sidebar chrome
+  const isBroadcast = pathname?.endsWith('/show');
 
   useEffect(() => {
     if (!sessionId) return;
@@ -24,6 +29,16 @@ export function SessionShell({
       cancelled = true;
     };
   }, [sessionId]);
+
+  if (isBroadcast) {
+    return (
+      <SessionIdContext.Provider value={sessionId}>
+        <main className="h-screen w-screen bg-obsidian-dark text-white overflow-y-auto">
+          {children}
+        </main>
+      </SessionIdContext.Provider>
+    );
+  }
 
   return (
     <SessionIdContext.Provider value={sessionId}>
